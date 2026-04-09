@@ -1,0 +1,42 @@
+# ===== GİZLİ / API ANAHTARLARI =====
+.env
+.env.*
+*.env
+secrets.json
+
+# ===== PYTHON =====
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+.venv/
+env/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+*.log
+
+# ===== PROJE CACHE =====
+hayes-protocol/backend/cache/
+
+# ===== NODE / JS =====
+node_modules/
+npm-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ===== CLAUDE CODE =====
+.claude/
+
+# ===== İŞLETİM SİSTEMİ =====
+.DS_Store
+Thumbs.db
+desktop.ini
+*~
+
+# ===== IDE =====
+.vscode/
+.idea/
+*.suo
+*.user

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KNOCK — Design Your Door</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════
+       SCREEN 1 — CHARACTER SELECTION
+  ═══════════════════════════════════════ -->
+  <div id="screen-select" class="screen active">
+    <div class="noise"></div>
+    <div class="select-inner">
+      <div class="epigraph">
+        "Mama, take this badge off of me / I can't use it anymore"
+        <span class="attr">— Bob Dylan, Knockin' on Heaven's Door (1973)</span>
+      </div>
+
+      <h1 class="title-knock">KNOCK</h1>
+      <p class="title-sub">Fort Meade, Maryland &nbsp;·&nbsp; Military Tribunal &nbsp;·&nbsp; 1971</p>
+      <p class="select-prompt">You are on trial. Choose who you are.</p>
+
+      <div class="char-grid">
+        <div class="char-card" data-char="A">
+          <div class="char-fig char-a">
+            <div class="fig-head"></div>
+            <div class="fig-body"></div>
+            <div class="fig-patch"></div>
+          </div>
+          <div class="char-title">FIELD SOLDIER</div>
+          <div class="char-desc">Worn olive uniform.<br>You still smell the mud.</div>
+        </div>
+        <div class="char-card" data-char="B">
+          <div class="char-fig char-b">
+            <div class="fig-head"></div>
+            <div class="fig-body"></div>
+          </div>
+          <div class="char-title">CIVILIAN</div>
+          <div class="char-desc">You tried to leave it behind.<br>It followed you home.</div>
+        </div>
+        <div class="char-card" data-char="C">
+          <div class="char-fig char-c">
+            <div class="fig-head"></div>
+            <div class="fig-body"></div>
+            <div class="fig-medals"></div>
+          </div>
+          <div class="char-title">DRESS UNIFORM</div>
+          <div class="char-desc">You came prepared.<br>You are not prepared.</div>
+        </div>
+      </div>
+
+      <button id="btn-begin" disabled>TAKE THE STAND</button>
+      <div id="select-status"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SCREEN 2 — LOADING
+  ═══════════════════════════════════════ -->
+  <div id="screen-loading" class="screen">
+    <div class="loading-inner">
+      <div class="load-title">PREPARING TRIBUNAL</div>
+      <div class="load-dots"><span>.</span><span>.</span><span>.</span></div>
+      <div class="load-detail">Fort Meade, Maryland — 1971<br>The record is being opened.</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SCREEN 3 — GAME
+  ═══════════════════════════════════════ -->
+  <div id="screen-game" class="screen">
+
+    <!-- LAYER 1: Scene backgrounds -->
+    <div id="scenes">
+      <div id="scene-1" class="scene css-courtroom active"></div>
+      <div id="scene-2" class="scene css-vietnam"></div>
+      <div id="scene-3" class="scene css-final"></div>
+    </div>
+
+    <!-- Atmospheric overlays -->
+    <div class="vignette"></div>
+    <div id="phase-color-overlay"></div>
+
+    <!-- LAYER 2: Jury — left side, appears on head turn -->
+    <div id="jury-panel">
+      <div class="juror"></div>
+      <div class="juror"></div>
+      <div class="juror"></div>
+      <div class="juror"></div>
+      <div class="juror"></div>
+      <div id="jury-label">THE JURY WATCHES</div>
+    </div>
+
+    <!-- LAYER 3: Judge -->
+    <div id="judge-wrap">
+      <div id="judge-sprite" class="sprite-idle">
+        <!-- CSS-drawn judge; replaced with spritesheet when available -->
+        <div class="judge-figure">
+          <div class="judge-head"></div>
+          <div class="judge-uniform">
+            <div class="judge-collar"></div>
+            <div class="judge-stars"></div>
+          </div>
+        </div>
+        <div id="judge-portrait-wrap">
+          <img id="judge-portrait" src="assets/hayes.png" alt="Colonel Hayes"
+               onerror="this.style.display='none'">
+        </div>
+      </div>
+      <div id="judge-nameplate">COL. RAYMOND HAYES &nbsp;·&nbsp; PRESIDING</div>
+    </div>
+
+    <!-- LAYER 4: Player -->
+    <div id="player-wrap">
+      <div id="player-sprite" class="sprite-idle">
+        <div class="player-figure" id="player-fig">
+          <div class="player-head"></div>
+          <div class="player-body" id="player-body"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LAYER 5: UI -->
+    <div id="ui">
+      <!-- Top HUD -->
+      <div id="hud-top">
+        <span id="hud-session">TRIBUNAL SESSION — FORT MEADE, MD — 1971</span>
+        <span id="hud-phase">PHASE I — INITIAL INQUIRY</span>
+      </div>
+
+      <!-- Intensity meter -->
+      <div id="intensity-wrap">
+        <span id="intensity-label">PRESSURE</span>
+        <div id="intensity-track">
+          <div id="intensity-fill"></div>
+        </div>
+      </div>
+
+      <!-- Dialogue box -->
+      <div id="dialogue-wrap">
+        <div id="speaker-tag">COLONEL HAYES</div>
+        <div id="dialogue-box">
+          <span id="dialogue-text"></span><span id="dialogue-cursor">|</span>
+        </div>
+      </div>
+
+      <!-- Input -->
+      <div id="input-wrap">
+        <div id="look-hint" aria-live="polite">← JURY &nbsp;&nbsp;|&nbsp;&nbsp; JUDGE →</div>
+        <div id="input-row">
+          <span id="input-prefix">TESTIMONY:</span>
+          <input type="text" id="user-input" placeholder="speak your truth..." autocomplete="off" maxlength="500">
+          <button id="btn-send">TESTIFY</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Flashback lock overlay -->
+    <div id="lock-overlay" aria-hidden="true">
+      <div id="lock-text">YOU CANNOT LOOK AWAY</div>
+    </div>
+
+  </div><!-- #screen-game -->
+
+  <script src="look.js"></script>
+  <script src="sprites.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
