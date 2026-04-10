@@ -99,7 +99,7 @@ body {
   position: relative;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: center;  
   gap: 1.6rem;
   max-width: 860px;
   padding: 2rem 1rem;
@@ -334,7 +334,69 @@ body {
   letter-spacing: 0.08em;
   line-height: 2;
 }
+/* ══════════════════════════════════════════════════════
+   HOW TO PLAY — PAPER NOTE
+   ══════════════════════════════════════════════════════ */
+.paper-note {
+  background: #c8b898;
+  color: #2a1f12;
+  padding: 1.4rem 1.6rem;
+  position: fixed;      /* absolute yerine fixed */
+  left: 2rem;
+  top: 50%;
+  transform: translateY(-50%) rotate(-1deg);
+  max-width: 320px;
+  width: 320px;
+  z-index: 10;
+}
+.paper-note::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent, transparent 27px,
+    rgba(42,31,18,0.07) 27px, rgba(42,31,18,0.07) 28px
+  );
+  pointer-events: none;
+}
 
+.paper-note-title {
+  font-family: 'Special Elite', serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-align: center;
+  color: #1a1008;
+  margin-bottom: 0.5rem;
+}
+
+.paper-note-rule {
+  border: none;
+  border-top: 1px solid rgba(42,31,18,0.25);
+  margin: 0.6rem 0;
+}
+
+.paper-note-body {
+  font-size: 0.72rem;
+  line-height: 1.9;
+  font-style: italic;
+  color: #2a1f12;
+  position: relative;
+}
+
+.paper-note-body strong {
+  font-style: normal;
+  font-weight: 700;
+  color: #1a1008;
+}
+
+.paper-note-footer {
+  font-size: 0.6rem;
+  text-align: center;
+  color: #5a4a34;
+  letter-spacing: 0.08em;
+  position: relative;
+}
 /* ══════════════════════════════════════════════════════
    SCREEN 3 — GAME
    ══════════════════════════════════════════════════════ */

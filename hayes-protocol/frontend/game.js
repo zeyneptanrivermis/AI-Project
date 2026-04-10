@@ -65,7 +65,7 @@ function switchScene(phase) {
 }
 
 /**
- * Generate final door image with DALL-E using user summary.
+ * Generate final door image with hugging face using user summary.
  * Called only when game is finished. CSS fallback stays if no OPENAI_KEY.
  */
 async function generateAndShowDoor() {
