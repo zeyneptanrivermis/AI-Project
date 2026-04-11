@@ -26,38 +26,8 @@
 
       <h1 class="title-knock">KNOCK</h1>
       <p class="title-sub">Lincoln County, New Mexico &nbsp;·&nbsp; Sheriff's Office &nbsp;·&nbsp; 1881</p>
-      <p class="select-prompt">You are being interrogated. Choose who you are.</p>
 
-      <div class="char-grid">
-        <div class="char-card" data-char="A">
-          <div class="char-fig char-a">
-            <div class="fig-head"></div>
-            <div class="fig-body"></div>
-            <div class="fig-patch"></div>
-          </div>
-          <div class="char-title">FIELD SOLDIER</div>
-          <div class="char-desc">Worn olive uniform.<br>You still smell the mud.</div>
-        </div>
-        <div class="char-card" data-char="B">
-          <div class="char-fig char-b">
-            <div class="fig-head"></div>
-            <div class="fig-body"></div>
-          </div>
-          <div class="char-title">CIVILIAN</div>
-          <div class="char-desc">You tried to leave it behind.<br>It followed you home.</div>
-        </div>
-        <div class="char-card" data-char="C">
-          <div class="char-fig char-c">
-            <div class="fig-head"></div>
-            <div class="fig-body"></div>
-            <div class="fig-medals"></div>
-          </div>
-          <div class="char-title">DRESS UNIFORM</div>
-          <div class="char-desc">You came prepared.<br>You are not prepared.</div>
-        </div>
-      </div>
-
-      <!-- How to play — paper note -->
+      <!-- How to play — paper note restored -->
       <div class="paper-note">
         <div class="paper-note-title">— How To Reach Your Door —</div>
         <hr class="paper-note-rule">
@@ -75,8 +45,9 @@
         <div class="paper-note-footer">there is no correct answer. there is only yours.</div>
       </div>
 
-      <button id="btn-begin" disabled>TAKE THE STAND</button>
-      <div id="select-status"></div>
+      <button id="btn-begin" style="position: relative; z-index: 100;">TAKE THE STAND</button>
+      <div id="select-status" style="margin-top: 1rem; font-size: 0.7rem; color: var(--accent);">[SYSTEM READY]</div>
+      <div id="ui-error-log" style="margin-top: 1rem; color: #ff4444; font-size: 0.7rem; text-align: center; max-width: 400px;"></div>
     </div>
   </div>
 
@@ -100,7 +71,17 @@
     <div id="scenes">
       <div id="scene-1" class="scene css-courtroom active"></div>
       <div id="scene-2" class="scene css-vietnam"></div>
-      <div id="scene-3" class="scene css-final"></div>
+      <div id="scene-3" class="scene css-final">
+        <div id="door-fallback">
+          <div class="door-frame">
+            <div class="door-panel">
+              <div class="door-knocker"></div>
+              <div class="door-keyhole"></div>
+            </div>
+          </div>
+          <div class="door-light"></div>
+        </div>
+      </div>
     </div>
 
     <!-- Atmospheric overlays -->
@@ -148,7 +129,10 @@
     <!-- LAYER 5: UI -->
     <div id="ui">
       <div id="hud-top">
-        <span id="hud-session">INTERROGATION — LINCOLN COUNTY, NM — 1881</span>
+        <div id="hud-left">
+          <span id="hud-session">INTERROGATION — LINCOLN COUNTY, NM — 1881</span>
+          <button id="btn-reset" title="Start a new session">NEW RECORD</button>
+        </div>
         <span id="hud-phase">PHASE I — REMINISCENCE</span>
       </div>
 
@@ -158,6 +142,8 @@
           <div id="intensity-fill"></div>
         </div>
       </div>
+
+      <div id="transcript-log"></div>
 
       <div id="dialogue-wrap">
         <div id="speaker-tag">SHERIFF HAYES</div>
@@ -181,6 +167,8 @@
     </div>
 
   </div><!-- #screen-game -->
+
+  <button id="btn-music-toggle" class="settings-btn" title="Toggle Music">MUSIC: ON</button>
 
   <script src="look.js"></script>
   <script src="sprites.js"></script>
