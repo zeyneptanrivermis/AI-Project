@@ -32,7 +32,8 @@
         <div class="paper-note-title">— How To Reach Your Door —</div>
         <hr class="paper-note-rule">
         <div class="paper-note-body">
-          You are being accused of breaking the law. Your old friend, Sheriff Garett will try to understand what happened.
+          You are being accused of breaking the law. Your old friend, Sheriff Garett will try to understand what
+          happened.
           <strong>Your answers will be used against you.</strong>
           <br><br>
           Evasive and rude answers raise pressure. Honest ones may lower it.<br><br>
@@ -46,8 +47,10 @@
       </div>
 
       <button id="btn-begin" style="position: relative; z-index: 100;">TAKE THE STAND</button>
+      <button id="btn-continue" style="display: none; position: relative; z-index: 101;">CONTINUE RECORD</button>
       <div id="select-status" style="margin-top: 1rem; font-size: 0.7rem; color: var(--accent);">[SYSTEM READY]</div>
-      <div id="ui-error-log" style="margin-top: 1rem; color: #ff4444; font-size: 0.7rem; text-align: center; max-width: 400px;"></div>
+      <div id="ui-error-log"
+        style="margin-top: 1rem; color: #ff4444; font-size: 0.7rem; text-align: center; max-width: 400px;"></div>
     </div>
   </div>
 
@@ -72,15 +75,6 @@
       <div id="scene-1" class="scene css-courtroom active"></div>
       <div id="scene-2" class="scene css-vietnam"></div>
       <div id="scene-3" class="scene css-final">
-        <div id="door-fallback">
-          <div class="door-frame">
-            <div class="door-panel">
-              <div class="door-knocker"></div>
-              <div class="door-keyhole"></div>
-            </div>
-          </div>
-          <div class="door-light"></div>
-        </div>
       </div>
     </div>
 
@@ -131,15 +125,16 @@
       <div id="hud-top">
         <div id="hud-left">
           <span id="hud-session">INTERROGATION — LINCOLN COUNTY, NM — 1881</span>
-          <button id="btn-reset" title="Start a new session">NEW RECORD</button>
+          <button id="btn-reset">DISCARD RECORD</button>
         </div>
-        <span id="hud-phase">PHASE I — REMINISCENCE</span>
-      </div>
 
-      <div id="intensity-wrap">
-        <span id="intensity-label">PRESSURE</span>
-        <div id="intensity-track">
-          <div id="intensity-fill"></div>
+        <span id="hud-phase">PHASE I — REMINISCENCE</span>
+
+        <div id="intensity-wrap">
+          <span id="intensity-label">PRESSURE</span>
+          <div id="intensity-track">
+            <div id="intensity-fill"></div>
+          </div>
         </div>
       </div>
 
@@ -162,13 +157,16 @@
       </div>
     </div>
 
-    <div id="lock-overlay" aria-hidden="true">
-      <div id="lock-text">YOU CANNOT LOOK AWAY</div>
+    <!-- DOOR BUTTON: shown at end of game -->
+    <div id="door-btn-wrap">
+      <button id="btn-door">APPROACH THE DOOR</button>
+      <p id="door-btn-hint">— your friend understood you —</p>
     </div>
 
   </div><!-- #screen-game -->
 
   <button id="btn-music-toggle" class="settings-btn" title="Toggle Music">MUSIC: ON</button>
+  <button id="btn-download" style="display: none;">DOWNLOAD YOUR DOOR</button>
 
   <script src="look.js"></script>
   <script src="sprites.js"></script>

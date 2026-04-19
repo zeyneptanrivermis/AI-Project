@@ -11,6 +11,7 @@ let currentPhase = 1;
 let isTyping = false;
 let isWaiting = false;
 let messageHistory = []; // Array of {role, text}
+let currentDoorUrl = null;
 let isMuted = localStorage.getItem('hayes_muted') === 'true'; 
 
 // ── Visual Error Logging ─────────────────────────────────
@@ -29,6 +30,7 @@ const screenGame = document.getElementById('screen-game');
 
 const charCards = document.querySelectorAll('.char-card');
 const btnBegin = document.getElementById('btn-begin');
+const btnContinue = document.getElementById('btn-continue');
 const selectStatus = document.getElementById('select-status');
 
 const userInput = document.getElementById('user-input');
@@ -52,7 +54,10 @@ const PHASE_NAMES = {
 
 const btnReset = document.getElementById('btn-reset');
 const transcriptLog = document.getElementById('transcript-log');
-
+console.log('btnBegin:', btnBegin);
+console.log('screenSelect:', screenSelect);
+console.log('screenLoading:', screenLoading);
+console.log('screenGame:', screenGame);
 // ── Persistence ───────────────────────────────────────────
 const State = {
   KEY: 'hayes_protocol_session',
@@ -298,27 +303,29 @@ function logMessage(role, text) {
 }
 
 /**
- * Generate final door image with hugging face using user summary.
- * Called only when game is finished. CSS fallback stays if no OPENAI_KEY.
+ * Generate final door image via backend API.
+ * Returns the object URL of the image, or null on failure.
  */
 async function generateAndShowDoor() {
   try {
     const res = await fetch(`${API}/generate-door`, { method: 'POST' });
-    if (!res.ok) return;
+    if (!res.ok) return null;
 
     const imgRes = await fetch(`${API}/door-image`);
-    if (!imgRes.ok || imgRes.status === 204) return;
+    if (!imgRes.ok || imgRes.status === 204) return null;
 
     const blob = await imgRes.blob();
     const url = URL.createObjectURL(blob);
+    currentDoorUrl = url; // Store for download
     const el = document.getElementById('scene-3');
     if (el) {
       el.style.backgroundImage = `url(${url})`;
       el.style.backgroundSize = 'cover';
       el.style.backgroundPosition = 'center';
     }
+    return url;
   } catch (_) {
-    // CSS fallback stays
+    return null;
   }
 }
 
@@ -384,17 +391,73 @@ async function applyResponse(data) {
     hudPhase.textContent = "CASE CONCLUDED";
     hudPhase.style.color = "var(--p3-accent)";
 
-    // Let the player read the final verdict for 5 seconds before showing the door
-    await new Promise(r => setTimeout(r, 5000));
+    State.save();
 
-    switchScene(3);
-    document.body.classList.add('game-over');
-    State.save(); // Save AFTER game-over class is added so isGameOver === true
+    // Start generating the door in the background immediately
+    const doorPromise = generateAndShowDoor();
 
-    // Generate personalized door — non-blocking
-    generateAndShowDoor().catch(err => console.error('Door generation failed:', err));
+    // Show the door button
+    const doorWrap = document.getElementById('door-btn-wrap');
+    const btnDoor = document.getElementById('btn-door');
+    const doorHint = document.getElementById('door-btn-hint');
+    if (doorWrap) doorWrap.classList.add('visible');
+
+    // On button click: wait for door image then transition
+    if (btnDoor) {
+      btnDoor.onclick = async () => {
+        btnDoor.disabled = true;
+        btnDoor.textContent = 'OPENING...';
+        if (doorHint) doorHint.textContent = 'preparing your door...';
+
+        // Wait for image to be ready (it may already be done)
+        await doorPromise;
+
+        if (doorWrap) doorWrap.classList.remove('visible');
+        document.body.classList.add('game-over');
+        switchScene(3);
+
+        // Show download button once scene 3 is active
+        const btnDownload = document.getElementById('btn-download');
+        if (btnDownload) btnDownload.style.display = 'block';
+      };
+    }
   }
 }
+
+
+// Handle Download — fetch directly from backend for reliability
+const btnDownload = document.getElementById('btn-download');
+if (btnDownload) {
+  btnDownload.addEventListener('click', async () => {
+    const originalText = btnDownload.textContent;
+    btnDownload.textContent = 'DOWNLOADING...';
+    btnDownload.disabled = true;
+
+    try {
+      const res = await fetch(`${API}/door-image`);
+      if (!res.ok) throw new Error('Image not available');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'your_door.png';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      btnDownload.textContent = 'DOWNLOADED ✓';
+    } catch (err) {
+      console.error('Download failed:', err);
+      btnDownload.textContent = 'DOWNLOAD FAILED';
+    } finally {
+      setTimeout(() => {
+        btnDownload.textContent = originalText;
+        btnDownload.disabled = false;
+      }, 3000);
+    }
+  });
+}
+
 
 // (Character selection logic removed per request)
 
@@ -406,6 +469,7 @@ btnBegin.addEventListener('click', async (e) => {
 
   // Clear any leftover session before starting fresh
   localStorage.removeItem(State.KEY);
+  if (btnContinue) btnContinue.style.display = 'none';
   messageHistory = [];
   currentPhase = 1;
 
@@ -486,6 +550,16 @@ async function sendMessage() {
     
     await applyResponse(data);
 
+    if (data.user_summary) {
+      console.log(`%c[USER SUMMARY]: ${data.user_summary}`, "color: #d0c0a0; font-weight: bold; background: #2a1f12; padding: 2px 5px;");
+    }
+
+    // If the game just finished, don't re-enable input
+    if (data.finished) {
+      isWaiting = false;
+      return;
+    }
+
   } catch (err) {
     console.error('Chat error:', err);
     dialogueText.textContent = '[Connection lost. The tribunal continues in silence.]';
@@ -510,48 +584,57 @@ async function init() {
   const saved = State.load();
   
   if (saved && saved.messageHistory && saved.messageHistory.length > 0) {
-    console.log('Restoring previous session...');
-    selectedChar = saved.selectedChar;
-    currentPhase = saved.currentPhase;
-    messageHistory = saved.messageHistory;
-
-    // Set visuals
-    document.body.className = `phase-${currentPhase}`;
-    hudPhase.textContent = PHASE_NAMES[currentPhase] || `PHASE ${currentPhase}`;
-    switchScene(currentPhase);
+    // Reveal continue button instead of auto-starting
+    if (btnContinue) {
+      btnContinue.style.display = 'inline-block';
+      if (selectStatus) selectStatus.textContent = '[PREVIOUS RECORD FOUND]';
+    }
     
-    const playerBody = document.getElementById('player-body');
-    if (playerBody) playerBody.className = `player-body char-${selectedChar}`;
-    
-    // Restore intensity
-    const intensity = saved.intensity || 0;
-    intensityFill.style.width = `${intensity * 100}%`;
-    if (intensity >= 0.7) intensityFill.style.background = 'var(--p3-accent)';
+    // Setup continue behavior
+    btnContinue.onclick = () => {
+      console.log('Restoring previous session...');
+      selectedChar = saved.selectedChar;
+      currentPhase = saved.currentPhase;
+      messageHistory = saved.messageHistory;
 
-    // Restore transcript
-    messageHistory.forEach(msg => logMessage(msg.role, msg.text));
+      // Set visuals
+      document.body.className = `phase-${currentPhase}`;
+      hudPhase.textContent = PHASE_NAMES[currentPhase] || `PHASE ${currentPhase}`;
+      switchScene(currentPhase);
+      
+      const playerBody = document.getElementById('player-body');
+      if (playerBody) playerBody.className = `player-body char-${selectedChar}`;
+      
+      // Restore intensity
+      const intensity = saved.intensity || 0;
+      intensityFill.style.width = `${intensity * 100}%`;
+      if (intensity >= 0.7) intensityFill.style.background = 'var(--p3-accent)';
 
-    // Show game screen
-    showScreen('screen-game');
-    Look.init();
+      // Restore transcript
+      messageHistory.forEach(msg => logMessage(msg.role, msg.text));
 
-    // Clear any finished or broken session (game-over or stuck on phase 3)
+      // Show game screen
+      showScreen('screen-game');
+      Look.init();
+
+      // Restore the last dialogue text
+      const lastJudgeMsg = [...messageHistory].reverse().find(m => m.role === 'judge');
+      if (lastJudgeMsg) {
+        dialogueText.textContent = lastJudgeMsg.text;
+      }
+
+      // Restore Music
+      BgmEngine.init();
+      BgmEngine.update(intensity);
+    };
+
+    // Auto-clear if game was over
     if (saved.isGameOver || saved.currentPhase === 3) {
       localStorage.removeItem(State.KEY);
+      if (btnContinue) btnContinue.style.display = 'none';
       document.body.className = 'phase-1';
       return;
     }
-
-    // Restore the last dialogue text
-    const lastJudgeMsg = [...messageHistory].reverse().find(m => m.role === 'judge');
-    if (lastJudgeMsg) {
-      dialogueText.textContent = lastJudgeMsg.text;
-    }
-
-    // Restore Music
-    BgmEngine.init();
-    BgmEngine.update(intensity);
-
   } else {
     document.body.className = 'phase-1';
   }

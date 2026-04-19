@@ -17,6 +17,8 @@ async def chat_endpoint(req: ChatRequest):
     try:
         return claude_service.chat(req.message)
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 

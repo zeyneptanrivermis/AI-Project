@@ -4,7 +4,7 @@ from pathlib import Path
 CACHE_DIR = Path(__file__).parent.parent / "cache"
 
 DOOR_PROMPT_TEMPLATE = (
-    "A cinematic representation of a final door in an 1881 Western setting."
+    "A cinematic representation of a personalized door in an 1881 Western setting. You can make the door creative and a little fantasy like."
     "Personality traits: {summary}. Wide angle, night/day/in between according to user feeling."
 )
 
@@ -20,7 +20,10 @@ def generate_door(summary: str) -> dict:
         response = httpx.post(
             "https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell",
             headers={"Authorization": f"Bearer {token}"},
-            json={"inputs": DOOR_PROMPT_TEMPLATE.format(summary=summary)},
+            json={
+                "inputs": DOOR_PROMPT_TEMPLATE.format(summary=summary),
+                "parameters": {"width": 1024, "height": 576}
+            },
             timeout=60.0
         )
 
