@@ -7,18 +7,18 @@
 
 const Look = (() => {
   let _direction = 'forward'; // 'forward' | 'left'
-  let _locked    = false;
+  let _locked = false;
 
-  const _juryPanel  = () => document.getElementById('jury-panel');
-  const _judgeWrap  = () => document.getElementById('judge-wrap');
-  const _playerSpr  = () => document.getElementById('player-sprite');
-  const _lockOv     = () => document.getElementById('lock-overlay');
-  const _lookHint   = () => document.getElementById('look-hint');
+  const _juryPanel = () => document.getElementById('jury-panel');
+  const _judgeWrap = () => document.getElementById('judge-wrap');
+  const _playerSpr = () => document.getElementById('player-sprite');
+  const _lockOv = () => document.getElementById('lock-overlay');
+  const _lookHint = () => document.getElementById('look-hint');
 
   function _apply(dir) {
     _direction = dir;
-    const jury   = _juryPanel();
-    const judge  = _judgeWrap();
+    const jury = _juryPanel();
+    const judge = _judgeWrap();
     const player = _playerSpr();
 
     if (dir === 'left') {
@@ -37,14 +37,14 @@ const Look = (() => {
   function setLocked(val) {
     _locked = val;
     const overlay = _lockOv();
-    const hint    = _lookHint();
+    const hint = _lookHint();
 
     if (val) {
-      overlay.classList.add('visible');
-      if (hint) hint.textContent = 'YOU CANNOT LOOK AWAY';
+      if (overlay) overlay.classList.add('visible');
+      if (hint) hint.textContent = '';
       _apply('forward');
     } else {
-      overlay.classList.remove('visible');
+      if (overlay) overlay.classList.remove('visible');
       if (hint) hint.textContent = '← JURY    |    JUDGE →';
     }
   }
@@ -54,7 +54,7 @@ const Look = (() => {
   function init() {
     document.addEventListener('keydown', (e) => {
       if (_locked) return;
-      if (e.key === 'ArrowLeft')  { e.preventDefault(); _apply('left'); }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); _apply('left'); }
       if (e.key === 'ArrowRight') { e.preventDefault(); _apply('forward'); }
     });
   }

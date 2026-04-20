@@ -17,15 +17,18 @@ async def chat_endpoint(req: ChatRequest):
     try:
         return claude_service.chat(req.message)
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/start")
 async def start_session(req: StartRequest):
-    """Reset conversation and get the judge's opening statement."""
     claude_service.reset()
     _check_key()
     try:
         return claude_service.get_opening()
     except Exception as e:
+        import traceback
+        traceback.print_exc()  # terminale tam hata basar
         raise HTTPException(status_code=500, detail=str(e))

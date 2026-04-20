@@ -18,7 +18,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from dotenv import load_dotenv
 load_dotenv()
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes.chat import router as chat_router
@@ -48,12 +47,11 @@ app.include_router(images_router)
 async def health():
     return {
         "status": "tribunal active",
-        "judge": "Colonel Raymond Hayes",
+        "judge": "Sheriff Raymond Hayes",
         "llm_engine": "Gemini 1.5 Flash",
         "gemini": bool(os.getenv("GEMINI_API_KEY")),
         "dalle": bool(os.getenv("OPENAI_API_KEY")),
     }
-
 
 if __name__ == "__main__":
     import uvicorn
