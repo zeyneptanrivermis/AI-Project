@@ -2,8 +2,13 @@
 KNOCK — Design Your Door
 Military Tribunal Experience | CSE 358
 
-Backend: FastAPI + Gemini 1.5 Flash (ücretsiz API)
-Karakterler: DALL-E 3 arka planlar (opsiyonel, CSS fallback var)
+Backend: FastAPI + Groq (Llama 3.3 70B)
+Görsel Üretimi: Hugging Face FLUX.1-schnell
+CSS fallback: var (görsel opsiyonel)
+
+Gerekli Environment Variables:
+    GROQ_API_KEY (console.groq.com/keys)
+    HF_API_TOKEN (huggingface.co/settings/tokens)
 
 Çalıştırma (backend/ klasöründen):
     venv\\Scripts\\activate
@@ -48,9 +53,10 @@ async def health():
     return {
         "status": "tribunal active",
         "judge": "Sheriff Raymond Hayes",
-        "llm_engine": "Gemini 1.5 Flash",
-        "gemini": bool(os.getenv("GEMINI_API_KEY")),
-        "dalle": bool(os.getenv("OPENAI_API_KEY")),
+        "llm_engine": "Groq (Llama 3.3 70B)",
+        "image_engine": "Hugging Face FLUX.1-schnell",
+        "groq_configured": bool(os.getenv("GROQ_API_KEY")),
+        "hf_configured": bool(os.getenv("HF_API_TOKEN")),
     }
 
 if __name__ == "__main__":
