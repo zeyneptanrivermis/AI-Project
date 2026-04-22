@@ -11,8 +11,14 @@ let currentPhase = 1;
 let isTyping = false;
 let isWaiting = false;
 let messageHistory = []; // Array of {role, text}
-let currentDoorUrl = null;
+<<<<<<< Updated upstream
 let isMuted = localStorage.getItem('hayes_muted') === 'true'; 
+=======
+let currentDoorUrl = null;
+let isMuted = localStorage.getItem('hayes_muted') === 'true';
+let intensityHistory = [];
+let lastUserSummary = '';
+>>>>>>> Stashed changes
 
 // ── Visual Error Logging ─────────────────────────────────
 window.onerror = function(msg, url, line, col, error) {
@@ -30,7 +36,6 @@ const screenGame = document.getElementById('screen-game');
 
 const charCards = document.querySelectorAll('.char-card');
 const btnBegin = document.getElementById('btn-begin');
-const btnContinue = document.getElementById('btn-continue');
 const selectStatus = document.getElementById('select-status');
 
 const userInput = document.getElementById('user-input');
@@ -54,10 +59,7 @@ const PHASE_NAMES = {
 
 const btnReset = document.getElementById('btn-reset');
 const transcriptLog = document.getElementById('transcript-log');
-console.log('btnBegin:', btnBegin);
-console.log('screenSelect:', screenSelect);
-console.log('screenLoading:', screenLoading);
-console.log('screenGame:', screenGame);
+
 // ── Persistence ───────────────────────────────────────────
 const State = {
   KEY: 'hayes_protocol_session',
@@ -68,7 +70,9 @@ const State = {
       messageHistory,
       intensity: parseFloat(intensityFill.style.width) / 100 || 0,
       isGameOver: document.body.classList.contains('game-over'),
-      isMuted
+      isMuted,
+      intensityHistory,
+      lastUserSummary
     };
     localStorage.setItem(this.KEY, JSON.stringify(data));
     localStorage.setItem('hayes_muted', isMuted);
@@ -136,6 +140,7 @@ const BgmEngine = {
     const targetVol = isMuted ? 0 : 0.45;
     this.masterGain.gain.linearRampToValueAtTime(targetVol, this.ctx.currentTime + 3);
     this.startLoop();
+    setTimeout(() => { if (this.isRunning) this.startAmbient(); }, 600);
   },
 
   updateMute() {
@@ -148,6 +153,10 @@ const BgmEngine = {
     if (!this.masterGain) return;
     const targetVol = isMuted ? 0 : (0.45 + (this.intensity * 0.2));
     this.masterGain.gain.setTargetAtTime(targetVol, this.ctx.currentTime, 0.5);
+    if (this.ambientGain) {
+      const base = [0.018, 0.032, 0.01][currentPhase - 1] ?? 0.018;
+      this.ambientGain.gain.setTargetAtTime(isMuted ? 0 : base + this.intensity * 0.015, this.ctx.currentTime, 0.5);
+    }
   },
 
   // Karplus-Strong string pluck synthesis
@@ -256,11 +265,57 @@ const BgmEngine = {
 
   update(intensity) {
     this.intensity = intensity;
-    // Master volume respects isMuted flag
     if (this.masterGain) {
       const targetVol = isMuted ? 0 : (0.45 + (intensity * 0.2));
       this.masterGain.gain.setTargetAtTime(targetVol, this.ctx.currentTime, 0.5);
     }
+  },
+
+  ambientGain: null,
+  ambientFilter: null,
+
+  startAmbient() {
+    if (this.ambientGain) return;
+    const bufferSize = this.ctx.sampleRate * 4;
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+    const src = this.ctx.createBufferSource();
+    src.buffer = buffer;
+    src.loop = true;
+    this.ambientFilter = this.ctx.createBiquadFilter();
+    this.ambientFilter.type = 'lowpass';
+    this.ambientFilter.frequency.value = 280;
+    this.ambientGain = this.ctx.createGain();
+    this.ambientGain.gain.value = isMuted ? 0 : 0.018;
+    src.connect(this.ambientFilter);
+    this.ambientFilter.connect(this.ambientGain);
+    this.ambientGain.connect(this.ctx.destination);
+    src.start();
+  },
+
+  updateAmbient(phase, intensity) {
+    if (!this.ambientGain || !this.ambientFilter) return;
+    const base = [0.018, 0.032, 0.01][phase - 1] ?? 0.018;
+    this.ambientGain.gain.setTargetAtTime(isMuted ? 0 : base + intensity * 0.015, this.ctx.currentTime, 2.5);
+    const freq = phase === 3 ? 140 : (phase === 2 ? 380 : 280);
+    this.ambientFilter.frequency.setTargetAtTime(freq, this.ctx.currentTime, 2.5);
+  },
+
+  phaseTransitionSound(phase) {
+    if (!this.ctx || !this.masterGain) return;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    const f = phase === 3 ? 52 : 68;
+    osc.frequency.setValueAtTime(f, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(f * 0.5, this.ctx.currentTime + 1.8);
+    g.gain.setValueAtTime(isMuted ? 0 : 0.22, this.ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 1.8);
+    osc.connect(g);
+    g.connect(this.masterGain);
+    osc.start();
+    osc.stop(this.ctx.currentTime + 1.8);
   }
 };
 
@@ -303,29 +358,27 @@ function logMessage(role, text) {
 }
 
 /**
- * Generate final door image via backend API.
- * Returns the object URL of the image, or null on failure.
+ * Generate final door image with hugging face using user summary.
+ * Called only when game is finished. CSS fallback stays if no OPENAI_KEY.
  */
 async function generateAndShowDoor() {
   try {
     const res = await fetch(`${API}/generate-door`, { method: 'POST' });
-    if (!res.ok) return null;
+    if (!res.ok) return;
 
     const imgRes = await fetch(`${API}/door-image`);
-    if (!imgRes.ok || imgRes.status === 204) return null;
+    if (!imgRes.ok || imgRes.status === 204) return;
 
     const blob = await imgRes.blob();
     const url = URL.createObjectURL(blob);
-    currentDoorUrl = url; // Store for download
     const el = document.getElementById('scene-3');
     if (el) {
       el.style.backgroundImage = `url(${url})`;
       el.style.backgroundSize = 'cover';
       el.style.backgroundPosition = 'center';
     }
-    return url;
   } catch (_) {
-    return null;
+    // CSS fallback stays
   }
 }
 
@@ -341,6 +394,7 @@ async function applyResponse(data) {
     document.body.className = `phase-${phase}`;
     hudPhase.textContent = PHASE_NAMES[phase] || `PHASE ${phase}`;
     switchScene(phase);
+    BgmEngine.phaseTransitionSound(phase);
 
     document.body.classList.add('shaking');
     setTimeout(() => document.body.classList.remove('shaking'), 450);
@@ -350,6 +404,8 @@ async function applyResponse(data) {
   if (!data.isRestoring) {
     messageHistory.push({ role: 'judge', text: dialogue });
     logMessage('judge', dialogue);
+    intensityHistory.push(intensity);
+    if (data.user_summary) lastUserSummary = data.user_summary;
     State.save();
   }
 
@@ -361,6 +417,7 @@ async function applyResponse(data) {
 
   // Update Music
   BgmEngine.update(intensity);
+  BgmEngine.updateAmbient(currentPhase, intensity);
 
   // Lock / unlock look
   Look.setLocked(lock_look);
@@ -391,16 +448,27 @@ async function applyResponse(data) {
     hudPhase.textContent = "CASE CONCLUDED";
     hudPhase.style.color = "var(--p3-accent)";
 
-    State.save();
+    // Let the player read the final verdict for 5 seconds before showing the door
+    await new Promise(r => setTimeout(r, 5000));
 
-    // Start generating the door in the background immediately
-    const doorPromise = generateAndShowDoor();
+    switchScene(3);
+    document.body.classList.add('game-over');
+    State.save(); // Save AFTER game-over class is added so isGameOver === true
 
+<<<<<<< Updated upstream
+    // Generate personalized door — non-blocking
+    generateAndShowDoor().catch(err => console.error('Door generation failed:', err));
+  }
+}
+
+=======
     // Show the door button
     const doorWrap = document.getElementById('door-btn-wrap');
     const btnDoor = document.getElementById('btn-door');
     const doorHint = document.getElementById('door-btn-hint');
     if (doorWrap) doorWrap.classList.add('visible');
+    const btnReport = document.getElementById('btn-report');
+    if (btnReport) btnReport.style.display = 'block';
 
     // On button click: wait for door image then transition
     if (btnDoor) {
@@ -416,6 +484,12 @@ async function applyResponse(data) {
         document.body.classList.add('game-over');
         switchScene(3);
 
+        // Move btn-reset to body so it's above screen-game's pointer-events layer
+        const resetBtn = document.getElementById('btn-reset');
+        if (resetBtn && resetBtn.parentElement !== document.body) {
+          document.body.appendChild(resetBtn);
+        }
+
         // Show download button once scene 3 is active
         const btnDownload = document.getElementById('btn-download');
         if (btnDownload) btnDownload.style.display = 'block';
@@ -424,6 +498,134 @@ async function applyResponse(data) {
   }
 }
 
+
+// ── Result Report ─────────────────────────────────────────
+function classifyType(hist) {
+  const n = hist.length;
+  if (!n) return { type: 'THE SEEKER', desc: 'The record is incomplete.' };
+  const avg = hist.reduce((a, b) => a + b, 0) / n;
+  const first = hist[0], final = hist[n - 1];
+  const dropped = first - final > 0.2 && avg < 0.65;
+  const rose = final - first > 0.25;
+  if (avg < 0.3) return { type: 'THE OPEN SOUL', desc: 'You faced yourself without flinching. The record shows a man with nothing left to hide.' };
+  if (dropped)   return { type: 'THE REDEEMED',  desc: 'The walls came down. What started as resistance ended in honesty. Hayes saw it happen.' };
+  if (rose)      return { type: 'THE CORNERED',   desc: 'You dug in harder as the questions got closer. Truth felt like a threat.' };
+  if (avg < 0.5) return { type: 'THE SEEKER',     desc: 'You wrestled with it. Pushed back sometimes, opened up in others. Still searching.' };
+  if (avg < 0.7) return { type: 'THE CONFLICTED', desc: 'Every honest answer cost you something. The pressure showed where the scars are.' };
+  return           { type: 'THE DEFIANT',          desc: "The walls never came down. Hayes couldn't reach you." };
+}
+
+function generateLetter(type, hist, summary) {
+  const n = hist.length;
+  if (!n) return ['No record was kept.'];
+  const p1 = hist.slice(0, Math.min(3, n));
+  const p2 = hist.slice(3, Math.min(7, n));
+  const last = hist[n - 1];
+  const avg1 = p1.reduce((a, b) => a + b, 0) / p1.length;
+  const avg2 = p2.length ? p2.reduce((a, b) => a + b, 0) / p2.length : avg1;
+
+  const openings = {
+    'THE OPEN SOUL':   "I've sat across from a lot of men. You're one of the few who didn't make me work for it.",
+    'THE REDEEMED':    "You came in with your armor on. Somewhere in the middle, you took it off.",
+    'THE CORNERED':    "You fought every question like it was a trap. Maybe that's the problem.",
+    'THE SEEKER':      "You kept looking for the right answer. There wasn't one. That's the point.",
+    'THE CONFLICTED':  "I've seen men crack clean. You cracked in pieces. That's harder — and more honest.",
+    'THE DEFIANT':     "You never gave me much. But the way you held back told me everything.",
+  };
+
+  const lines = [];
+  lines.push(openings[type] || openings['THE CONFLICTED']);
+
+  if (avg1 < 0.35)      lines.push("The first questions — you answered them clean. No hedging, no theater.");
+  else if (avg1 < 0.55) lines.push("The first questions — you were careful. Every word weighed before it landed.");
+  else                  lines.push("From the start your guard was up. I didn't take it personally.");
+
+  if (p2.length) {
+    if (avg2 < 0.35)      lines.push("When I pushed deeper, you didn't pull back. That takes something.");
+    else if (avg2 < 0.6)  lines.push("The harder questions — you pushed back, then relented. The truth was closer than you let on.");
+    else                  lines.push("The weight of it — you felt it. You just weren't ready to set it down.");
+  }
+
+  const keywords = summary ? summary.split(',').map(s => s.trim()).filter(Boolean).slice(0, 2) : [];
+  if (keywords.length >= 2) lines.push(`You kept coming back to "${keywords[0]}" and "${keywords[1]}". Make of that what you will.`);
+
+  if (last < 0.3)      lines.push("You leave this room lighter than you came in. That's rare. Hold onto it.");
+  else if (last < 0.55) lines.push("I don't know if you found what you needed here. But you were present. That matters.");
+  else                  lines.push("Whatever you're carrying — you walked out still carrying it. That's yours to put down when you're ready.");
+
+  return lines;
+}
+
+function buildJourneySVG(hist) {
+  const n = hist.length;
+  if (n < 2) return '<p style="font-size:0.7rem;color:rgba(42,31,18,0.5);text-align:center">—</p>';
+  const W = 380, H = 20 + (n - 1) * 28 + 30;
+  const cx = W / 2;
+  const pts = hist.map((val, i) => ({
+    x: cx + (val - 0.5) * 240,
+    y: 20 + i * 28,
+    val, i
+  }));
+  let d = `M ${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+  for (let i = 1; i < pts.length; i++) {
+    const prev = pts[i - 1], curr = pts[i];
+    const mid = (prev.y + curr.y) / 2;
+    d += ` C ${prev.x.toFixed(1)},${mid.toFixed(1)} ${curr.x.toFixed(1)},${mid.toFixed(1)} ${curr.x.toFixed(1)},${curr.y.toFixed(1)}`;
+  }
+  const dotFill = v => v >= 0.7 ? '#7a1515' : v >= 0.4 ? '#6b4f10' : '#2d4a28';
+  const sepY2 = n > 3 ? pts[3].y - 12 : -1;
+  const sepY3 = n > 7 ? pts[7].y - 12 : -1;
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto">
+    <line x1="${cx}" y1="8" x2="${cx}" y2="${H - 14}" stroke="rgba(42,31,18,0.12)" stroke-dasharray="3,4"/>
+    ${sepY2 > 0 ? `<line x1="28" y1="${sepY2}" x2="${W - 28}" y2="${sepY2}" stroke="rgba(42,31,18,0.18)" stroke-dasharray="4,3"/>
+    <text x="28" y="${sepY2 - 2}" fill="rgba(42,31,18,0.38)" font-size="6.5" font-family="Courier Prime,monospace" letter-spacing="1">PHASE II</text>` : ''}
+    ${sepY3 > 0 ? `<line x1="28" y1="${sepY3}" x2="${W - 28}" y2="${sepY3}" stroke="rgba(42,31,18,0.18)" stroke-dasharray="4,3"/>
+    <text x="28" y="${sepY3 - 2}" fill="rgba(42,31,18,0.38)" font-size="6.5" font-family="Courier Prime,monospace" letter-spacing="1">PHASE III</text>` : ''}
+    <text x="28" y="14" fill="rgba(42,31,18,0.38)" font-size="6.5" font-family="Courier Prime,monospace" letter-spacing="1">PHASE I</text>
+    <path d="${d}" fill="none" stroke="rgba(42,31,18,0.35)" stroke-width="1.5"/>
+    ${pts.map(p => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="5" fill="${dotFill(p.val)}" stroke="rgba(200,184,152,0.7)" stroke-width="1.2"/>
+    <text x="${p.x > cx ? p.x + 9 : p.x - 20}" y="${(p.y + 3.5).toFixed(1)}" fill="rgba(42,31,18,0.4)" font-size="6.5" font-family="Courier Prime,monospace">Q${p.i + 1}</text>`).join('')}
+    <text x="14" y="${H - 3}" fill="rgba(42,31,18,0.35)" font-size="6" font-family="Courier Prime,monospace">← honest</text>
+    <text x="${W - 58}" y="${H - 3}" fill="rgba(42,31,18,0.35)" font-size="6" font-family="Courier Prime,monospace">evasive →</text>
+  </svg>`;
+}
+
+function buildReport() {
+  const hist = intensityHistory;
+  const avg   = hist.length ? hist.reduce((a, b) => a + b, 0) / hist.length : 0;
+  const peak  = hist.length ? Math.max(...hist) : 0;
+  const final = hist.length ? hist[hist.length - 1] : 0;
+
+  const { type, desc } = classifyType(hist);
+  document.getElementById('report-type').textContent = type;
+  document.getElementById('report-desc').textContent = desc;
+  document.getElementById('report-stat-avg').textContent   = Math.round(avg * 100) + '%';
+  document.getElementById('report-stat-peak').textContent  = Math.round(peak * 100) + '%';
+  document.getElementById('report-stat-final').textContent = Math.round(final * 100) + '%';
+  document.getElementById('report-stat-q').textContent     = hist.length;
+
+  const letterLines = generateLetter(type, hist, lastUserSummary);
+  document.getElementById('report-letter').innerHTML = letterLines
+    .map(l => `<p class="report-letter-line">${l}</p>`)
+    .join('') + '<p class="report-letter-sig">— Sheriff R. Hayes &nbsp;·&nbsp; Lincoln County, NM &nbsp;·&nbsp; 1881</p>';
+
+  document.getElementById('report-journey').innerHTML = buildJourneySVG(hist);
+}
+
+function showReport(summary) {
+  buildReport();
+  const el = document.getElementById('report-summary-text');
+  if (el) el.textContent = summary || '—';
+  document.getElementById('report-overlay').classList.add('visible');
+}
+
+const btnReport = document.getElementById('btn-report');
+if (btnReport) {
+  btnReport.addEventListener('click', () => showReport(lastUserSummary));
+}
+document.getElementById('btn-close-report').addEventListener('click', () => {
+  document.getElementById('report-overlay').classList.remove('visible');
+});
 
 // Handle Download — fetch directly from backend for reliability
 const btnDownload = document.getElementById('btn-download');
@@ -459,6 +661,7 @@ if (btnDownload) {
 }
 
 
+>>>>>>> Stashed changes
 // (Character selection logic removed per request)
 
 // ── Begin: start session ──────────────────────────────────
@@ -469,7 +672,6 @@ btnBegin.addEventListener('click', async (e) => {
 
   // Clear any leftover session before starting fresh
   localStorage.removeItem(State.KEY);
-  if (btnContinue) btnContinue.style.display = 'none';
   messageHistory = [];
   currentPhase = 1;
 
@@ -550,16 +752,6 @@ async function sendMessage() {
     
     await applyResponse(data);
 
-    if (data.user_summary) {
-      console.log(`%c[USER SUMMARY]: ${data.user_summary}`, "color: #d0c0a0; font-weight: bold; background: #2a1f12; padding: 2px 5px;");
-    }
-
-    // If the game just finished, don't re-enable input
-    if (data.finished) {
-      isWaiting = false;
-      return;
-    }
-
   } catch (err) {
     console.error('Chat error:', err);
     dialogueText.textContent = '[Connection lost. The tribunal continues in silence.]';
@@ -584,57 +776,59 @@ async function init() {
   const saved = State.load();
   
   if (saved && saved.messageHistory && saved.messageHistory.length > 0) {
-    // Reveal continue button instead of auto-starting
-    if (btnContinue) {
-      btnContinue.style.display = 'inline-block';
-      if (selectStatus) selectStatus.textContent = '[PREVIOUS RECORD FOUND]';
-    }
+    console.log('Restoring previous session...');
+    selectedChar = saved.selectedChar;
+    currentPhase = saved.currentPhase;
+    messageHistory = saved.messageHistory;
+
+    // Set visuals
+    document.body.className = `phase-${currentPhase}`;
+    hudPhase.textContent = PHASE_NAMES[currentPhase] || `PHASE ${currentPhase}`;
+    switchScene(currentPhase);
     
+<<<<<<< Updated upstream
+    const playerBody = document.getElementById('player-body');
+    if (playerBody) playerBody.className = `player-body char-${selectedChar}`;
+    
+    // Restore intensity
+    const intensity = saved.intensity || 0;
+    intensityFill.style.width = `${intensity * 100}%`;
+    if (intensity >= 0.7) intensityFill.style.background = 'var(--p3-accent)';
+=======
     // Setup continue behavior
     btnContinue.onclick = () => {
       console.log('Restoring previous session...');
       selectedChar = saved.selectedChar;
       currentPhase = saved.currentPhase;
       messageHistory = saved.messageHistory;
+      intensityHistory = saved.intensityHistory || [];
+      lastUserSummary = saved.lastUserSummary || '';
+>>>>>>> Stashed changes
 
-      // Set visuals
-      document.body.className = `phase-${currentPhase}`;
-      hudPhase.textContent = PHASE_NAMES[currentPhase] || `PHASE ${currentPhase}`;
-      switchScene(currentPhase);
-      
-      const playerBody = document.getElementById('player-body');
-      if (playerBody) playerBody.className = `player-body char-${selectedChar}`;
-      
-      // Restore intensity
-      const intensity = saved.intensity || 0;
-      intensityFill.style.width = `${intensity * 100}%`;
-      if (intensity >= 0.7) intensityFill.style.background = 'var(--p3-accent)';
+    // Restore transcript
+    messageHistory.forEach(msg => logMessage(msg.role, msg.text));
 
-      // Restore transcript
-      messageHistory.forEach(msg => logMessage(msg.role, msg.text));
+    // Show game screen
+    showScreen('screen-game');
+    Look.init();
 
-      // Show game screen
-      showScreen('screen-game');
-      Look.init();
-
-      // Restore the last dialogue text
-      const lastJudgeMsg = [...messageHistory].reverse().find(m => m.role === 'judge');
-      if (lastJudgeMsg) {
-        dialogueText.textContent = lastJudgeMsg.text;
-      }
-
-      // Restore Music
-      BgmEngine.init();
-      BgmEngine.update(intensity);
-    };
-
-    // Auto-clear if game was over
+    // Clear any finished or broken session (game-over or stuck on phase 3)
     if (saved.isGameOver || saved.currentPhase === 3) {
       localStorage.removeItem(State.KEY);
-      if (btnContinue) btnContinue.style.display = 'none';
       document.body.className = 'phase-1';
       return;
     }
+
+    // Restore the last dialogue text
+    const lastJudgeMsg = [...messageHistory].reverse().find(m => m.role === 'judge');
+    if (lastJudgeMsg) {
+      dialogueText.textContent = lastJudgeMsg.text;
+    }
+
+    // Restore Music
+    BgmEngine.init();
+    BgmEngine.update(intensity);
+
   } else {
     document.body.className = 'phase-1';
   }
