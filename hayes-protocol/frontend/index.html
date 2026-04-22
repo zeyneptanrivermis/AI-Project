@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>KNOCK — Design Your Door</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=2">
   <link
     href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap"
     rel="stylesheet">
@@ -32,7 +32,8 @@
         <div class="paper-note-title">— How To Reach Your Door —</div>
         <hr class="paper-note-rule">
         <div class="paper-note-body">
-          You are being accused of breaking the law. Your old friend, Sheriff Garett will try to understand what happened.
+          You are being accused of breaking the law. Your old friend, Sheriff Garett will try to understand what
+          happened.
           <strong>Your answers will be used against you.</strong>
           <br><br>
           Evasive and rude answers raise pressure. Honest ones may lower it.<br><br>
@@ -47,7 +48,8 @@
 
       <button id="btn-begin" style="position: relative; z-index: 100;">TAKE THE STAND</button>
       <div id="select-status" style="margin-top: 1rem; font-size: 0.7rem; color: var(--accent);">[SYSTEM READY]</div>
-      <div id="ui-error-log" style="margin-top: 1rem; color: #ff4444; font-size: 0.7rem; text-align: center; max-width: 400px;"></div>
+      <div id="ui-error-log"
+        style="margin-top: 1rem; color: #ff4444; font-size: 0.7rem; text-align: center; max-width: 400px;"></div>
     </div>
   </div>
 
@@ -88,15 +90,6 @@
     <div class="vignette"></div>
     <div id="phase-color-overlay"></div>
 
-    <!-- LAYER 2: Jury — left side, appears on head turn -->
-    <div id="jury-panel">
-      <div class="juror"></div>
-      <div class="juror"></div>
-      <div class="juror"></div>
-      <div class="juror"></div>
-      <div class="juror"></div>
-      <div id="jury-label">THE JURY WATCHES</div>
-    </div>
 
     <!-- LAYER 3: Judge -->
     <div id="judge-wrap">
@@ -116,16 +109,6 @@
       <div id="judge-nameplate">SHERIFF RAYMOND HAYES &nbsp;·&nbsp; LINCOLN COUNTY</div>
     </div>
 
-    <!-- LAYER 4: Player -->
-    <div id="player-wrap">
-      <div id="player-sprite" class="sprite-idle">
-        <div class="player-figure" id="player-fig">
-          <div class="player-head"></div>
-          <div class="player-body" id="player-body"></div>
-        </div>
-      </div>
-    </div>
-
     <!-- LAYER 5: UI -->
     <div id="ui">
       <div id="hud-top">
@@ -133,13 +116,15 @@
           <span id="hud-session">INTERROGATION — LINCOLN COUNTY, NM — 1881</span>
           <button id="btn-reset" title="Start a new session">NEW RECORD</button>
         </div>
-        <span id="hud-phase">PHASE I — REMINISCENCE</span>
-      </div>
-
-      <div id="intensity-wrap">
-        <span id="intensity-label">PRESSURE</span>
-        <div id="intensity-track">
-          <div id="intensity-fill"></div>
+        <div id="hud-right">
+          <button id="btn-music-toggle" class="settings-btn" title="Toggle Music">MUSIC: ON</button>
+          <div id="intensity-wrap">
+            <span id="intensity-label">PRESSURE</span>
+            <div id="intensity-track">
+              <div id="intensity-fill"></div>
+            </div>
+          </div>
+          <span id="hud-phase">PHASE I — REMINISCENCE</span>
         </div>
       </div>
 
@@ -153,7 +138,7 @@
       </div>
 
       <div id="input-wrap">
-        <div id="look-hint" aria-live="polite">← JURY &nbsp;&nbsp;|&nbsp;&nbsp; JUDGE →</div>
+
         <div id="input-row">
           <span id="input-prefix">TESTIMONY:</span>
           <input type="text" id="user-input" placeholder="speak your truth..." autocomplete="off" maxlength="500">
@@ -162,15 +147,13 @@
       </div>
     </div>
 
-    <div id="lock-overlay" aria-hidden="true">
-      <div id="lock-text">YOU CANNOT LOOK AWAY</div>
-    </div>
 
+    <div id="door-btn-wrap">
+      <button id="btn-door">WALK THROUGH</button>
+      <span id="door-btn-hint">you have reached the end of the line.</span>
+    </div>
   </div><!-- #screen-game -->
 
-  <button id="btn-music-toggle" class="settings-btn" title="Toggle Music">MUSIC: ON</button>
-<<<<<<< Updated upstream
-=======
   <button id="btn-download" style="display: none;">DOWNLOAD YOUR DOOR</button>
   <button id="btn-report" style="display: none;">VIEW YOUR RECORD</button>
 
@@ -232,7 +215,6 @@
       <button id="btn-close-report">CLOSE RECORD</button>
     </div>
   </div>
->>>>>>> Stashed changes
 
   <script src="look.js"></script>
   <script src="sprites.js"></script>

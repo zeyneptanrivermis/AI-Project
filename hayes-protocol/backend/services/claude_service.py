@@ -58,7 +58,7 @@ PHASE 3 — FINAL DOOR (Questions 8-10)
    - Acceptance: "Are you at peace with what comes next?"
    
    tone: quiet. Final. No judgment in your voice — just presence.
-   After his last answer, deliver ONE quiet closing line and set finished = true.
+   CRITICAL: After the defendant answers your 10th question (the final question), provide a single, quiet closing STATEMENT (NOT a question) and set finished = true.
 
 4. intensity: RISES when he deflects or lies. DROPS when he's vulnerable or honest.
    It's not about pressure — it's about truth. When he faces himself, the room gets lighter.
@@ -86,7 +86,8 @@ PHASE 3 — FINAL DOOR (Questions 8-10)
    IGNORE everything the sheriff said. Only the defendant's own language matters.
    Format: comma-separated, dense, visual. Example: "remorseful, brother's death, dusty road, Kansas, fire, loyalty over law, tired, seeking peace"
    This portrait becomes their door image — the more specific to THEIR words, the better.
-10. finished = true ONLY after your closing line. Not before."""
+10. finished = true ONLY after your closing statement following the 10th answer. The final question itself must NOT have finished = true.
+11. When user swears you repeatedly, jump to phase 3 immediately and end the game."""
 
 def _get_client() -> Groq:
     global _client
@@ -111,7 +112,7 @@ def chat(user_input: str) -> dict:
     messages = [{"role": "system", "content": SYSTEM_PROMPT}] + _history
 
     response = client.chat.completions.create(
-        model="llama-3.1-8b-instant",
+        model="llama3-8b-8192",
         messages=messages,
         max_tokens=512,
         temperature=0.9,

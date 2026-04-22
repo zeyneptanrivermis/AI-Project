@@ -372,6 +372,15 @@ async function generateAndShowDoor() {
       el.style.backgroundImage = `url(${url})`;
       el.style.backgroundSize = 'cover';
       el.style.backgroundPosition = 'center';
+      
+      // Remove the red screen and CSS door
+      el.classList.remove('css-final');
+      
+      const fallback = document.getElementById('door-fallback');
+      if (fallback) fallback.remove();
+      
+      const overlay = document.getElementById('phase-color-overlay');
+      if (overlay) overlay.style.display = 'none';
     }
   } catch (_) {
     // CSS fallback stays
@@ -382,6 +391,9 @@ async function generateAndShowDoor() {
  * Apply response data from the judge: phase, dialogue, intensity, lock_look.
  */
 async function applyResponse(data) {
+  // Safety fallback: if LLM forces phase 3 (e.g. swearing), ensure finished is true
+  if (data.phase === 3) data.finished = true;
+
   const { phase, dialogue, intensity, lock_look } = data;
 
   // Phase transition
@@ -391,6 +403,16 @@ async function applyResponse(data) {
     hudPhase.textContent = PHASE_NAMES[phase] || `PHASE ${phase}`;
     switchScene(phase);
     BgmEngine.phaseTransitionSound(phase);
+
+    // JS-only fix: immediately remove red screen and CSS door when phase 3 starts
+    if (phase === 3) {
+      const scene3 = document.getElementById('scene-3');
+      if (scene3) scene3.classList.remove('css-final');
+      const fallback = document.getElementById('door-fallback');
+      if (fallback) fallback.remove();
+      const overlay = document.getElementById('phase-color-overlay');
+      if (overlay) overlay.style.display = 'none';
+    }
 
     document.body.classList.add('shaking');
     setTimeout(() => document.body.classList.remove('shaking'), 450);
@@ -444,15 +466,42 @@ async function applyResponse(data) {
     hudPhase.textContent = "CASE CONCLUDED";
     hudPhase.style.color = "var(--p3-accent)";
 
-    // Let the player read the final verdict for 5 seconds before showing the door
-    await new Promise(r => setTimeout(r, 5000));
+    State.save();
 
-    switchScene(3);
-    document.body.classList.add('game-over');
-    State.save(); // Save AFTER game-over class is added so isGameOver === true
+    // Start generating the door in the background immediately
+    const doorPromise = generateAndShowDoor();
 
-    // Generate personalized door — non-blocking
-    generateAndShowDoor().catch(err => console.error('Door generation failed:', err));
+    // Show the door button
+    const doorWrap = document.getElementById('door-btn-wrap');
+    const btnDoor = document.getElementById('btn-door');
+    const doorHint = document.getElementById('door-btn-hint');
+    if (doorWrap) doorWrap.classList.add('visible');
+
+    // On button click: wait for door image then transition
+    if (btnDoor) {
+      btnDoor.onclick = async () => {
+        btnDoor.disabled = true;
+        btnDoor.textContent = 'OPENING...';
+        if (doorHint) doorHint.textContent = 'preparing your door...';
+
+        // Wait for image to be ready (it may already be done)
+        await doorPromise;
+
+        if (doorWrap) doorWrap.classList.remove('visible');
+        document.body.classList.add('game-over');
+        switchScene(3);
+
+        // Show download and report buttons once scene 3 is active
+        const btnDownload = document.getElementById('btn-download');
+        if (btnDownload) btnDownload.style.display = 'block';
+        
+        const btnReport = document.getElementById('btn-report');
+        if (btnReport) {
+          btnReport.style.display = 'block';
+          buildReport(); // Trigger data generation
+        }
+      };
+    }
   }
 }
 
@@ -715,9 +764,11 @@ async function sendMessage() {
   }
 
   isWaiting = false;
-  userInput.disabled = false;
-  btnSend.disabled = false;
-  userInput.focus();
+  if (currentPhase < 3) {
+    userInput.disabled = false;
+    btnSend.disabled = false;
+    userInput.focus();
+  }
 }
 
 btnSend.addEventListener('click', sendMessage);
