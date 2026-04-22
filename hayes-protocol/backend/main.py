@@ -28,7 +28,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from routes.chat import router as chat_router
 from routes.images import router as images_router
 
-(Path(__file__).parent / "cache").mkdir(exist_ok=True)
 
 app = FastAPI(
     title="KNOCK — Military Tribunal API",
