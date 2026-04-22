@@ -3,7 +3,7 @@
  * Manages: character selection → session start → chat → phase transitions
  */
 
-const API = 'http://127.0.0.1:8000';
+const API = 'https://hayes-protocol-game.vercel.app';
 
 // ── State ─────────────────────────────────────────────────
 let selectedChar = 'A'; // Hardcoded default character
@@ -11,14 +11,10 @@ let currentPhase = 1;
 let isTyping = false;
 let isWaiting = false;
 let messageHistory = []; // Array of {role, text}
-<<<<<<< Updated upstream
 let isMuted = localStorage.getItem('hayes_muted') === 'true'; 
-=======
 let currentDoorUrl = null;
-let isMuted = localStorage.getItem('hayes_muted') === 'true';
 let intensityHistory = [];
 let lastUserSummary = '';
->>>>>>> Stashed changes
 
 // ── Visual Error Logging ─────────────────────────────────
 window.onerror = function(msg, url, line, col, error) {
@@ -455,46 +451,8 @@ async function applyResponse(data) {
     document.body.classList.add('game-over');
     State.save(); // Save AFTER game-over class is added so isGameOver === true
 
-<<<<<<< Updated upstream
     // Generate personalized door — non-blocking
     generateAndShowDoor().catch(err => console.error('Door generation failed:', err));
-  }
-}
-
-=======
-    // Show the door button
-    const doorWrap = document.getElementById('door-btn-wrap');
-    const btnDoor = document.getElementById('btn-door');
-    const doorHint = document.getElementById('door-btn-hint');
-    if (doorWrap) doorWrap.classList.add('visible');
-    const btnReport = document.getElementById('btn-report');
-    if (btnReport) btnReport.style.display = 'block';
-
-    // On button click: wait for door image then transition
-    if (btnDoor) {
-      btnDoor.onclick = async () => {
-        btnDoor.disabled = true;
-        btnDoor.textContent = 'OPENING...';
-        if (doorHint) doorHint.textContent = 'preparing your door...';
-
-        // Wait for image to be ready (it may already be done)
-        await doorPromise;
-
-        if (doorWrap) doorWrap.classList.remove('visible');
-        document.body.classList.add('game-over');
-        switchScene(3);
-
-        // Move btn-reset to body so it's above screen-game's pointer-events layer
-        const resetBtn = document.getElementById('btn-reset');
-        if (resetBtn && resetBtn.parentElement !== document.body) {
-          document.body.appendChild(resetBtn);
-        }
-
-        // Show download button once scene 3 is active
-        const btnDownload = document.getElementById('btn-download');
-        if (btnDownload) btnDownload.style.display = 'block';
-      };
-    }
   }
 }
 
@@ -661,7 +619,6 @@ if (btnDownload) {
 }
 
 
->>>>>>> Stashed changes
 // (Character selection logic removed per request)
 
 // ── Begin: start session ──────────────────────────────────
@@ -786,7 +743,6 @@ async function init() {
     hudPhase.textContent = PHASE_NAMES[currentPhase] || `PHASE ${currentPhase}`;
     switchScene(currentPhase);
     
-<<<<<<< Updated upstream
     const playerBody = document.getElementById('player-body');
     if (playerBody) playerBody.className = `player-body char-${selectedChar}`;
     
@@ -794,16 +750,8 @@ async function init() {
     const intensity = saved.intensity || 0;
     intensityFill.style.width = `${intensity * 100}%`;
     if (intensity >= 0.7) intensityFill.style.background = 'var(--p3-accent)';
-=======
-    // Setup continue behavior
-    btnContinue.onclick = () => {
-      console.log('Restoring previous session...');
-      selectedChar = saved.selectedChar;
-      currentPhase = saved.currentPhase;
-      messageHistory = saved.messageHistory;
-      intensityHistory = saved.intensityHistory || [];
-      lastUserSummary = saved.lastUserSummary || '';
->>>>>>> Stashed changes
+    intensityHistory = saved.intensityHistory || [];
+    lastUserSummary = saved.lastUserSummary || '';
 
     // Restore transcript
     messageHistory.forEach(msg => logMessage(msg.role, msg.text));
