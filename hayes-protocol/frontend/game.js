@@ -11,10 +11,55 @@ let currentPhase = 1;
 let isTyping = false;
 let isWaiting = false;
 let messageHistory = []; // Array of {role, text}
-let isMuted = localStorage.getItem('hayes_muted') === 'true'; 
+let chatHistory = []; // LLM conversation history sent to backend
+let isMuted = localStorage.getItem('hayes_muted') === 'true';
 let currentDoorUrl = null;
 let intensityHistory = [];
 let lastUserSummary = '';
+
+// ── Error Handling ───────────────────────────────────────
+let _rateLimitTimer = null;
+
+async function parseErrorResponse(res) {
+  try {
+    const body = await res.json();
+    return body.detail || body;
+  } catch {
+    return { type: 'server_error', message: `HTTP ${res.status}` };
+  }
+}
+
+function errorMessage(detail) {
+  if (!detail) return 'Connection lost.';
+  if (typeof detail === 'string') return detail;
+  switch (detail.type) {
+    case 'rate_limit': return `__RATE_LIMIT__${detail.retry_after || 60}`;
+    case 'auth_error':  return 'API key invalid. Contact the developer.';
+    case 'no_key':      return 'API key not configured.';
+    default:            return detail.message || 'Unknown error.';
+  }
+}
+
+function showRateLimitCountdown(seconds, onDone) {
+  if (_rateLimitTimer) clearInterval(_rateLimitTimer);
+  let remaining = seconds;
+
+  const update = () => {
+    const mins = Math.floor(remaining / 60);
+    const secs = String(remaining % 60).padStart(2, '0');
+    const timeStr = mins > 0 ? `${mins}:${secs}` : `${remaining}s`;
+    dialogueText.textContent = `[ AI rate limit reached. The tribunal resumes in ${timeStr}... ]`;
+    if (remaining <= 0) {
+      clearInterval(_rateLimitTimer);
+      _rateLimitTimer = null;
+      if (onDone) onDone();
+    }
+    remaining--;
+  };
+
+  update();
+  _rateLimitTimer = setInterval(update, 1000);
+}
 
 // ── Visual Error Logging ─────────────────────────────────
 window.onerror = function(msg, url, line, col, error) {
@@ -64,6 +109,7 @@ const State = {
       selectedChar,
       currentPhase,
       messageHistory,
+      chatHistory,
       intensity: parseFloat(intensityFill.style.width) / 100 || 0,
       isGameOver: document.body.classList.contains('game-over'),
       isMuted,
@@ -359,7 +405,11 @@ function logMessage(role, text) {
  */
 async function generateAndShowDoor() {
   try {
-    const res = await fetch(`${API}/generate-door`, { method: 'POST' });
+    const res = await fetch(`${API}/generate-door`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ summary: lastUserSummary }),
+    });
     if (!res.ok) return;
 
     const imgRes = await fetch(`${API}/door-image`);
@@ -694,6 +744,7 @@ btnBegin.addEventListener('click', async (e) => {
   showScreen('screen-loading');
 
   // Start session
+  chatHistory = [];
   try {
     const res = await fetch(`${API}/start`, {
       method: 'POST',
@@ -701,8 +752,21 @@ btnBegin.addEventListener('click', async (e) => {
       body: JSON.stringify({ character: selectedChar }),
     });
 
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const detail = await parseErrorResponse(res);
+      const msg = errorMessage(detail);
+      const display = msg.startsWith('__RATE_LIMIT__')
+        ? `Rate limit reached. Wait ~${msg.split('__RATE_LIMIT__')[1]}s then try again.`
+        : msg;
+      selectStatus.textContent = display;
+      btnBegin.disabled = false;
+      btnBegin.textContent = 'TAKE THE STAND';
+      showScreen('screen-select');
+      return;
+    }
+
     const data = await res.json();
+    if (data.history) chatHistory = data.history;
 
     showScreen('screen-game');
     Look.init();
@@ -719,7 +783,7 @@ btnBegin.addEventListener('click', async (e) => {
 
   } catch (err) {
     console.error('Failed to start session:', err);
-    selectStatus.textContent = 'Connection error. Is backend running on port 8000?';
+    selectStatus.textContent = 'Connection error. Backend unreachable.';
     btnBegin.disabled = false;
     btnBegin.textContent = 'TAKE THE STAND';
     showScreen('screen-select');
@@ -746,21 +810,44 @@ async function sendMessage() {
     const res = await fetch(`${API}/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text, character: selectedChar }),
+      body: JSON.stringify({ message: text, character: selectedChar, history: chatHistory }),
     });
 
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const detail = await parseErrorResponse(res);
+      const msg = errorMessage(detail);
+      if (msg.startsWith('__RATE_LIMIT__')) {
+        const secs = parseInt(msg.split('__RATE_LIMIT__')[1]) || 60;
+        showRateLimitCountdown(secs, () => {
+          isWaiting = false;
+          userInput.disabled = false;
+          btnSend.disabled = false;
+          userInput.value = text;
+          userInput.focus();
+        });
+        return;
+      }
+      dialogueText.textContent = `[ ${msg} ]`;
+      isWaiting = false;
+      if (currentPhase < 3) {
+        userInput.disabled = false;
+        btnSend.disabled = false;
+      }
+      return;
+    }
+
     const data = await res.json();
-    
+    if (data.history) chatHistory = data.history;
+
     // Log player message
     messageHistory.push({ role: 'player', text });
     logMessage('player', text);
-    
+
     await applyResponse(data);
 
   } catch (err) {
     console.error('Chat error:', err);
-    dialogueText.textContent = '[Connection lost. The tribunal continues in silence.]';
+    dialogueText.textContent = '[ Connection lost. Check your internet and try again. ]';
   }
 
   isWaiting = false;
@@ -788,6 +875,7 @@ async function init() {
     selectedChar = saved.selectedChar;
     currentPhase = saved.currentPhase;
     messageHistory = saved.messageHistory;
+    chatHistory = saved.chatHistory || [];
 
     // Set visuals
     document.body.className = `phase-${currentPhase}`;

@@ -2,16 +2,17 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, Response
-from services import dalle_service, claude_service
+from services import dalle_service
+from models import GenerateDoorRequest
 
 router = APIRouter()
 _executor = ThreadPoolExecutor(max_workers=1)
 
 @router.post("/generate-door")
-async def generate_door():
+async def generate_door(req: GenerateDoorRequest = GenerateDoorRequest()):
     import traceback
     try:
-        summary = claude_service.get_summary()
+        summary = req.summary
         if not summary:
             raise HTTPException(status_code=400, detail="No summary yet.")
         loop = asyncio.get_event_loop()
