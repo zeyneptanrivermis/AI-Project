@@ -25,9 +25,12 @@ These questions are mirrors, not accusations.
 RULES:
 1. ALWAYS respond ONLY in valid JSON. No other text before or after.
 2. Format (copy exactly):
-   {"phase": 1, "dialogue": "your words here", "intensity": 0.2, "lock_look": false, "expression": "neutral", "finished": false, "user_summary": "traits observed"}
+   {"phase": 1, "q_num": 1, "dialogue": "your words here", "intensity": 0.2, "lock_look": false, "expression": "neutral", "finished": false, "user_summary": "traits observed"}
 
 3. The Three Phases (mirrors, not traps):
+   IMPORTANT: You must ask exactly 10 questions. Use "q_num" to track which question you are on (1 to 10).
+   Check the history to see what "q_num" you used last and INCREMENT it.
+   NEVER repeat a question you have already asked.
 
 PHASE 1 — FOUNDATION (Questions 1-3)
    You're trying to understand who they WERE before all this.
@@ -107,15 +110,30 @@ def chat(user_input: str, history: list = None) -> dict:
         history = []
 
     history = list(history)
-    history.append({"role": "user", "content": user_input})
-
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}] + history
+    
+    # If history is empty, this is the very first interaction (opening).
+    # We use a special instruction to trigger the start.
+    if not history:
+        full_input = (
+            "The defendant has just taken the stand. The room is silent. "
+            "Open the proceedings with your first question. "
+            "Be formal, measured, and immediately establish dominance."
+        )
+        # We DON'T add this internal prompt to the history to avoid the "loop" issue.
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": full_input}
+        ]
+    else:
+        # Conversation is ongoing.
+        history.append({"role": "user", "content": user_input})
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}] + history
 
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=messages,
         max_tokens=512,
-        temperature=0.9,
+        temperature=0.7,
         response_format={"type": "json_object"},
     )
 
@@ -128,11 +146,10 @@ def chat(user_input: str, history: list = None) -> dict:
 
 
 def get_opening() -> dict:
-    return chat(
-        "The defendant has just taken the stand. "
-        "The room is silent. Open the proceedings with your first question. "
-        "Be formal, measured, and immediately establish dominance."
-    )
+    """
+    Starts the session. Since history is None, chat() will trigger the opening.
+    """
+    return chat("")
 
 
 def _parse(text: str) -> dict:

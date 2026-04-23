@@ -33,11 +33,11 @@ function errorMessage(detail) {
   if (!detail) return 'Connection lost.';
   if (typeof detail === 'string') return 'Something went wrong. Please try again.';
   switch (detail.type) {
-    case 'rate_limit':   return `__RATE_LIMIT__${detail.retry_after || 60}`;
-    case 'auth_error':   return 'API key invalid. Contact the developer.';
-    case 'no_key':       return 'API key not configured. Contact the developer.';
+    case 'rate_limit': return `__RATE_LIMIT__${detail.retry_after || 60}`;
+    case 'auth_error': return 'API key invalid. Contact the developer.';
+    case 'no_key': return 'API key not configured. Contact the developer.';
     case 'server_error': return 'Something went wrong on our end. Please try again.';
-    default:             return 'Something went wrong. Please try again.';
+    default: return 'Something went wrong. Please try again.';
   }
 }
 
@@ -63,7 +63,7 @@ function showRateLimitCountdown(seconds, onDone) {
 }
 
 // ── Visual Error Logging ─────────────────────────────────
-window.onerror = function(msg, url, line, col, error) {
+window.onerror = function (msg, url, line, col, error) {
   const log = document.getElementById('ui-error-log');
   if (log) {
     log.textContent = `CRITICAL ERROR: ${msg} (Line: ${line})`;
@@ -143,20 +143,20 @@ const AudioFX = {
   click() {
     this.init();
     if (this.ctx.state === 'suspended') this.ctx.resume();
-    
+
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
-    
+
     osc.type = 'sine';
     osc.frequency.setValueAtTime(150 + Math.random() * 100, this.ctx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(10, this.ctx.currentTime + 0.05);
-    
+
     gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.05);
-    
+
     osc.connect(gain);
     gain.connect(this.ctx.destination);
-    
+
     osc.start();
     osc.stop(this.ctx.currentTime + 0.05);
   }
@@ -168,16 +168,16 @@ const BgmEngine = {
   masterGain: null,
   isRunning: false,
   intensity: 0,
-  
+
   init() {
     if (this.isRunning) return;
     this.ctx = AudioFX.ctx || new (window.AudioContext || window.webkitAudioContext)();
     AudioFX.ctx = this.ctx;
-    
+
     this.masterGain = this.ctx.createGain();
     this.masterGain.gain.setValueAtTime(0, this.ctx.currentTime);
     this.masterGain.connect(this.ctx.destination);
-    
+
     this.isRunning = true;
     this.masterGain.gain.setValueAtTime(0, this.ctx.currentTime);
     const targetVol = isMuted ? 0 : 0.45;
@@ -209,23 +209,23 @@ const BgmEngine = {
     const bufferSize = sampleRate * dur;
     const buffer = this.ctx.createBuffer(1, bufferSize, sampleRate);
     const data = buffer.getChannelData(0);
-    
+
     const period = Math.floor(sampleRate / freq);
     for (let i = 0; i < period; i++) {
       data[i] = Math.random() * 2 - 1; // initial noise burst
     }
-    
+
     const damping = 0.994 - (this.intensity * 0.04);
     for (let i = period; i < bufferSize; i++) {
       data[i] = (data[i - period] + data[i - period + 1]) * 0.5 * damping;
     }
-    
+
     const source = this.ctx.createBufferSource();
     source.buffer = buffer;
     const g = this.ctx.createGain();
     g.gain.setValueAtTime(velocity, this.ctx.currentTime);
     g.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + dur);
-    
+
     // Corruption effect at high intensity
     if (this.intensity > 0.35) {
       const dist = this.ctx.createWaveShaper();
@@ -235,7 +235,7 @@ const BgmEngine = {
     } else {
       source.connect(g);
     }
-    
+
     g.connect(this.masterGain);
     source.start();
   },
@@ -259,10 +259,10 @@ const BgmEngine = {
     osc.type = 'triangle';
     osc.frequency.setValueAtTime(140, this.ctx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.12);
-    
+
     g.gain.setValueAtTime(0.5 + (this.intensity * 0.5), this.ctx.currentTime);
     g.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
-    
+
     osc.connect(g);
     g.connect(this.masterGain);
     osc.start();
@@ -273,7 +273,7 @@ const BgmEngine = {
     let bar = 0;
     const bpm = 68;
     const beatMs = (60 / bpm) * 1000;
-    
+
     // G - D - Am / G - D - C (Approx keys)
     const chords = [
       [98.00, 123.47, 146.83, 196.00], // G
@@ -285,24 +285,24 @@ const BgmEngine = {
 
     const playStep = () => {
       if (!this.isRunning) return;
-      
+
       const chordIdx = sequence[bar % sequence.length];
       const currentChord = chords[chordIdx];
-      
+
       // Knock on every bar start
       this.knock();
-      
+
       // Strum chord
       currentChord.forEach((f, i) => {
         setTimeout(() => {
-          if (this.isRunning) this.pluck(f * (1 + (Math.random()*0.005)), 0.35 - (i * 0.04));
+          if (this.isRunning) this.pluck(f * (1 + (Math.random() * 0.005)), 0.35 - (i * 0.04));
         }, i * (40 + Math.random() * 20));
       });
-      
+
       bar++;
       setTimeout(playStep, beatMs * 2); // Two beats per chord
     };
-    
+
     playStep();
   },
 
@@ -423,13 +423,13 @@ async function generateAndShowDoor() {
       el.style.backgroundImage = `url(${url})`;
       el.style.backgroundSize = 'cover';
       el.style.backgroundPosition = 'center';
-      
+
       // Remove the red screen and CSS door
       el.classList.remove('css-final');
-      
+
       const fallback = document.getElementById('door-fallback');
       if (fallback) fallback.remove();
-      
+
       const overlay = document.getElementById('phase-color-overlay');
       if (overlay) overlay.style.display = 'none';
     }
@@ -545,7 +545,7 @@ async function applyResponse(data) {
         // Show download and report buttons once scene 3 is active
         const btnDownload = document.getElementById('btn-download');
         if (btnDownload) btnDownload.style.display = 'block';
-        
+
         const btnReport = document.getElementById('btn-report');
         if (btnReport) {
           btnReport.style.display = 'block';
@@ -566,11 +566,11 @@ function classifyType(hist) {
   const dropped = first - final > 0.2 && avg < 0.65;
   const rose = final - first > 0.25;
   if (avg < 0.3) return { type: 'THE OPEN SOUL', desc: 'You faced yourself without flinching. The record shows a man with nothing left to hide.' };
-  if (dropped)   return { type: 'THE REDEEMED',  desc: 'The walls came down. What started as resistance ended in honesty. Hayes saw it happen.' };
-  if (rose)      return { type: 'THE CORNERED',   desc: 'You dug in harder as the questions got closer. Truth felt like a threat.' };
-  if (avg < 0.5) return { type: 'THE SEEKER',     desc: 'You wrestled with it. Pushed back sometimes, opened up in others. Still searching.' };
+  if (dropped) return { type: 'THE REDEEMED', desc: 'The walls came down. What started as resistance ended in honesty. Hayes saw it happen.' };
+  if (rose) return { type: 'THE CORNERED', desc: 'You dug in harder as the questions got closer. Truth felt like a threat.' };
+  if (avg < 0.5) return { type: 'THE SEEKER', desc: 'You wrestled with it. Pushed back sometimes, opened up in others. Still searching.' };
   if (avg < 0.7) return { type: 'THE CONFLICTED', desc: 'Every honest answer cost you something. The pressure showed where the scars are.' };
-  return           { type: 'THE DEFIANT',          desc: "The walls never came down. Hayes couldn't reach you." };
+  return { type: 'THE DEFIANT', desc: "The walls never came down. Hayes couldn't reach you." };
 }
 
 function generateLetter(type, hist, summary) {
@@ -583,33 +583,33 @@ function generateLetter(type, hist, summary) {
   const avg2 = p2.length ? p2.reduce((a, b) => a + b, 0) / p2.length : avg1;
 
   const openings = {
-    'THE OPEN SOUL':   "I've sat across from a lot of men. You're one of the few who didn't make me work for it.",
-    'THE REDEEMED':    "You came in with your armor on. Somewhere in the middle, you took it off.",
-    'THE CORNERED':    "You fought every question like it was a trap. Maybe that's the problem.",
-    'THE SEEKER':      "You kept looking for the right answer. There wasn't one. That's the point.",
-    'THE CONFLICTED':  "I've seen men crack clean. You cracked in pieces. That's harder — and more honest.",
-    'THE DEFIANT':     "You never gave me much. But the way you held back told me everything.",
+    'THE OPEN SOUL': "I've sat across from a lot of men. You're one of the few who didn't make me work for it.",
+    'THE REDEEMED': "You came in with your armor on. Somewhere in the middle, you took it off.",
+    'THE CORNERED': "You fought every question like it was a trap. Maybe that's the problem.",
+    'THE SEEKER': "You kept looking for the right answer. There wasn't one. That's the point.",
+    'THE CONFLICTED': "I've seen men crack clean. You cracked in pieces. That's harder — and more honest.",
+    'THE DEFIANT': "You never gave me much. But the way you held back told me everything.",
   };
 
   const lines = [];
   lines.push(openings[type] || openings['THE CONFLICTED']);
 
-  if (avg1 < 0.35)      lines.push("The first questions — you answered them clean. No hedging, no theater.");
+  if (avg1 < 0.35) lines.push("The first questions — you answered them clean. No hedging, no theater.");
   else if (avg1 < 0.55) lines.push("The first questions — you were careful. Every word weighed before it landed.");
-  else                  lines.push("From the start your guard was up. I didn't take it personally.");
+  else lines.push("From the start your guard was up. I didn't take it personally.");
 
   if (p2.length) {
-    if (avg2 < 0.35)      lines.push("When I pushed deeper, you didn't pull back. That takes something.");
-    else if (avg2 < 0.6)  lines.push("The harder questions — you pushed back, then relented. The truth was closer than you let on.");
-    else                  lines.push("The weight of it — you felt it. You just weren't ready to set it down.");
+    if (avg2 < 0.35) lines.push("When I pushed deeper, you didn't pull back. That takes something.");
+    else if (avg2 < 0.6) lines.push("The harder questions — you pushed back, then relented. The truth was closer than you let on.");
+    else lines.push("The weight of it — you felt it. You just weren't ready to set it down.");
   }
 
   const keywords = summary ? summary.split(',').map(s => s.trim()).filter(Boolean).slice(0, 2) : [];
   if (keywords.length >= 2) lines.push(`You kept coming back to "${keywords[0]}" and "${keywords[1]}". Make of that what you will.`);
 
-  if (last < 0.3)      lines.push("You leave this room lighter than you came in. That's rare. Hold onto it.");
+  if (last < 0.3) lines.push("You leave this room lighter than you came in. That's rare. Hold onto it.");
   else if (last < 0.55) lines.push("I don't know if you found what you needed here. But you were present. That matters.");
-  else                  lines.push("Whatever you're carrying — you walked out still carrying it. That's yours to put down when you're ready.");
+  else lines.push("Whatever you're carrying — you walked out still carrying it. That's yours to put down when you're ready.");
 
   return lines;
 }
@@ -650,17 +650,17 @@ function buildJourneySVG(hist) {
 
 function buildReport() {
   const hist = intensityHistory;
-  const avg   = hist.length ? hist.reduce((a, b) => a + b, 0) / hist.length : 0;
-  const peak  = hist.length ? Math.max(...hist) : 0;
+  const avg = hist.length ? hist.reduce((a, b) => a + b, 0) / hist.length : 0;
+  const peak = hist.length ? Math.max(...hist) : 0;
   const final = hist.length ? hist[hist.length - 1] : 0;
 
   const { type, desc } = classifyType(hist);
   document.getElementById('report-type').textContent = type;
   document.getElementById('report-desc').textContent = desc;
-  document.getElementById('report-stat-avg').textContent   = Math.round(avg * 100) + '%';
-  document.getElementById('report-stat-peak').textContent  = Math.round(peak * 100) + '%';
+  document.getElementById('report-stat-avg').textContent = Math.round(avg * 100) + '%';
+  document.getElementById('report-stat-peak').textContent = Math.round(peak * 100) + '%';
   document.getElementById('report-stat-final').textContent = Math.round(final * 100) + '%';
-  document.getElementById('report-stat-q').textContent     = hist.length;
+  document.getElementById('report-stat-q').textContent = hist.length;
 
   const letterLines = generateLetter(type, hist, lastUserSummary);
   document.getElementById('report-letter').innerHTML = letterLines
@@ -738,10 +738,10 @@ btnBegin.addEventListener('click', async (e) => {
   userInput.disabled = false;
   userInput.placeholder = "speak your truth...";
   hudPhase.textContent = 'PHASE I — REMINISCENCE';
-  
+
   // Start Music Engine
   BgmEngine.init();
-  
+
   showScreen('screen-loading');
 
   // Start session
@@ -870,7 +870,7 @@ userInput.addEventListener('keydown', e => {
 // ── Session Restoration ──────────────────────────────────
 async function init() {
   const saved = State.load();
-  
+
   if (saved && saved.messageHistory && saved.messageHistory.length > 0) {
     console.log('Restoring previous session...');
     selectedChar = saved.selectedChar;
@@ -882,10 +882,10 @@ async function init() {
     document.body.className = `phase-${currentPhase}`;
     hudPhase.textContent = PHASE_NAMES[currentPhase] || `PHASE ${currentPhase}`;
     switchScene(currentPhase);
-    
+
     const playerBody = document.getElementById('player-body');
     if (playerBody) playerBody.className = `player-body char-${selectedChar}`;
-    
+
     // Restore intensity
     const intensity = saved.intensity || 0;
     intensityFill.style.width = `${intensity * 100}%`;
