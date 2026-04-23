@@ -40,7 +40,7 @@ def _handle_groq_error(e: Exception):
     traceback.print_exc()
     raise HTTPException(status_code=500, detail={
         "type": "server_error",
-        "message": err_str
+        "message": "Internal server error."
     })
 
 

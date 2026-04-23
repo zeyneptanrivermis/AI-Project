@@ -31,12 +31,13 @@ async function parseErrorResponse(res) {
 
 function errorMessage(detail) {
   if (!detail) return 'Connection lost.';
-  if (typeof detail === 'string') return detail;
+  if (typeof detail === 'string') return 'Something went wrong. Please try again.';
   switch (detail.type) {
-    case 'rate_limit': return `__RATE_LIMIT__${detail.retry_after || 60}`;
-    case 'auth_error':  return 'API key invalid. Contact the developer.';
-    case 'no_key':      return 'API key not configured.';
-    default:            return detail.message || 'Unknown error.';
+    case 'rate_limit':   return `__RATE_LIMIT__${detail.retry_after || 60}`;
+    case 'auth_error':   return 'API key invalid. Contact the developer.';
+    case 'no_key':       return 'API key not configured. Contact the developer.';
+    case 'server_error': return 'Something went wrong on our end. Please try again.';
+    default:             return 'Something went wrong. Please try again.';
   }
 }
 
