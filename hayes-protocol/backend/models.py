@@ -6,14 +6,17 @@ class ChatRequest(BaseModel):
     message: str
     character: str = "A"
     history: List[Dict[str, Any]] = []
+    mode: str = "classic"
 
 
 class StartRequest(BaseModel):
     character: str = "A"
+    mode: str = "classic"
 
 
 class GenerateDoorRequest(BaseModel):
     summary: str = ""
+    mode: str = "classic"
 
 
 class ChatResponse(BaseModel):

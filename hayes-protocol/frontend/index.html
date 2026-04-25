@@ -31,7 +31,7 @@
       <div class="paper-note">
         <div class="paper-note-title">— How To Reach Your Door —</div>
         <hr class="paper-note-rule">
-        <div class="paper-note-body">
+        <div class="paper-note-body" id="paper-note-body">
           You are being accused of breaking the law. Your old friend, Sheriff Garett will try to understand what
           happened.
           <strong>Your answers will be used against you.</strong>
@@ -44,6 +44,21 @@
         </div>
         <hr class="paper-note-rule">
         <div class="paper-note-footer">there is no correct answer. there is only yours.</div>
+      </div>
+
+      <!-- Mode selection -->
+      <div id="mode-select">
+        <div class="mode-label">— choose your session —</div>
+        <div class="mode-cards">
+          <div class="mode-card selected" data-mode="classic">
+            <div class="mode-card-title">THE RECKONING</div>
+            <div class="mode-card-desc">A philosophical mirror.<br>Ten questions about who you are.</div>
+          </div>
+          <div class="mode-card" data-mode="crime">
+            <div class="mode-card-title">THE INVESTIGATION</div>
+            <div class="mode-card-desc">A murder. A dead man.<br>Sheriff Garrett wants the truth.</div>
+          </div>
+        </div>
       </div>
 
       <button id="btn-begin" style="position: relative; z-index: 100;">TAKE THE STAND</button>
@@ -148,9 +163,18 @@
     </div>
 
 
-    <div id="door-btn-wrap">
-      <button id="btn-door">WALK THROUGH</button>
-      <span id="door-btn-hint">you have reached the end of the line.</span>
+    <div id="door-knock-wrap">
+      <p id="door-knock-text">do you want to knock?</p>
+      <div id="door-knock-actions">
+        <div class="door-knock-option">
+          <button id="btn-knock">KNOCK</button>
+          <span class="door-knock-hint">face what comes next</span>
+        </div>
+        <div class="door-knock-option">
+          <button id="btn-leave-door">WALK AWAY</button>
+          <span class="door-knock-hint">some things are better not known</span>
+        </div>
+      </div>
     </div>
   </div><!-- #screen-game -->
 

@@ -48,7 +48,7 @@ def _handle_groq_error(e: Exception):
 async def chat_endpoint(req: ChatRequest):
     _check_key()
     try:
-        return claude_service.chat(req.message, req.history)
+        return claude_service.chat(req.message, req.history, req.mode)
     except HTTPException:
         raise
     except Exception as e:
@@ -59,7 +59,7 @@ async def chat_endpoint(req: ChatRequest):
 async def start_session(req: StartRequest):
     _check_key()
     try:
-        return claude_service.get_opening()
+        return claude_service.get_opening(req.mode)
     except HTTPException:
         raise
     except Exception as e:

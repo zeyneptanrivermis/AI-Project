@@ -15,8 +15,9 @@ async def generate_door(req: GenerateDoorRequest = GenerateDoorRequest()):
         summary = req.summary
         if not summary:
             raise HTTPException(status_code=400, detail="No summary yet.")
+        mode = req.mode
         loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(_executor, dalle_service.generate_door, summary)
+        result = await loop.run_in_executor(_executor, dalle_service.generate_door, summary, mode)
         if not result.get("success"):
             raise HTTPException(status_code=500, detail=result.get("error"))
         return result

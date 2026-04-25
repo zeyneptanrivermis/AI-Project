@@ -6,12 +6,13 @@
 const API = 'https://hayes-protocol-game.vercel.app';
 
 // ── State ─────────────────────────────────────────────────
-let selectedChar = 'A'; // Hardcoded default character
+let selectedChar = 'A';
+let selectedMode = 'classic'; // 'classic' | 'crime'
 let currentPhase = 1;
 let isTyping = false;
 let isWaiting = false;
-let messageHistory = []; // Array of {role, text}
-let chatHistory = []; // LLM conversation history sent to backend
+let messageHistory = [];
+let chatHistory = [];
 let isMuted = localStorage.getItem('hayes_muted') === 'true';
 let currentDoorUrl = null;
 let intensityHistory = [];
@@ -94,9 +95,16 @@ const scenes = [null,
 ];
 
 const PHASE_NAMES = {
-  1: 'PHASE I — REMINISCENCE',
-  2: 'PHASE II — WHO YOU ARE',
-  3: 'PHASE III — WHAT WILL YOU DO',
+  classic: {
+    1: 'PHASE I — REMINISCENCE',
+    2: 'PHASE II — WHO YOU ARE',
+    3: 'PHASE III — WHAT WILL YOU DO',
+  },
+  crime: {
+    1: 'PHASE I — ESTABLISH',
+    2: 'PHASE II — PRESSURE',
+    3: 'PHASE III — RECKONING',
+  },
 };
 
 const btnReset = document.getElementById('btn-reset');
@@ -108,6 +116,7 @@ const State = {
   save() {
     const data = {
       selectedChar,
+      selectedMode,
       currentPhase,
       messageHistory,
       chatHistory,
@@ -162,12 +171,81 @@ const AudioFX = {
   }
 };
 
-// ── BgmEngine (Acoustic 'Heaven's Door' Overhaul) ──────────
+// ── Knock SFX ─────────────────────────────────────────────
+async function playKnockSequence(count = 3) {
+  const ctx = AudioFX.ctx;
+  if (!ctx || isMuted) return;
+  if (ctx.state === 'suspended') await ctx.resume();
+  for (let i = 0; i < count; i++) {
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'sine';
+    const t = ctx.currentTime + 0.01;
+    osc.frequency.setValueAtTime(118, t);
+    osc.frequency.exponentialRampToValueAtTime(44, t + 0.10);
+    g.gain.setValueAtTime(0.6, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.13);
+    osc.connect(g);
+    g.connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.14);
+    await new Promise(r => setTimeout(r, 400));
+  }
+  await new Promise(r => setTimeout(r, 250));
+}
+
+// ── Door creak SFX ────────────────────────────────────────
+function playDoorCreak() {
+  const ctx = AudioFX.ctx;
+  if (!ctx || isMuted) return;
+  if (ctx.state === 'suspended') ctx.resume();
+
+  const osc = ctx.createOscillator();
+  const lfo = ctx.createOscillator();
+  const lfoGain = ctx.createGain();
+  const filter = ctx.createBiquadFilter();
+  const g = ctx.createGain();
+
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(170, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(65, ctx.currentTime + 2.4);
+
+  lfo.type = 'sine';
+  lfo.frequency.value = 9;
+  lfoGain.gain.value = 20;
+  lfo.connect(lfoGain);
+  lfoGain.connect(osc.frequency);
+
+  filter.type = 'bandpass';
+  filter.frequency.value = 340;
+  filter.Q.value = 2.5;
+
+  g.gain.setValueAtTime(0, ctx.currentTime);
+  g.gain.linearRampToValueAtTime(0.18, ctx.currentTime + 0.12);
+  g.gain.setValueAtTime(0.11, ctx.currentTime + 1.9);
+  g.gain.linearRampToValueAtTime(0, ctx.currentTime + 2.5);
+
+  osc.connect(filter);
+  filter.connect(g);
+  g.connect(ctx.destination);
+
+  lfo.start(ctx.currentTime);
+  osc.start(ctx.currentTime);
+  lfo.stop(ctx.currentTime + 2.6);
+  osc.stop(ctx.currentTime + 2.6);
+}
+
+// ── BgmEngine — Soft fingerpicking, Knockin' on Heaven's Door chord progression ──
+// Replaces Karplus-Strong (too harsh) with clean sine oscillators + tape-echo delay.
 const BgmEngine = {
   ctx: null,
   masterGain: null,
+  delayNode: null,
+  feedbackGain: null,
   isRunning: false,
   intensity: 0,
+  _bar: 0,
+  _stepTimer: null,
 
   init() {
     if (this.isRunning) return;
@@ -178,12 +256,113 @@ const BgmEngine = {
     this.masterGain.gain.setValueAtTime(0, this.ctx.currentTime);
     this.masterGain.connect(this.ctx.destination);
 
+    // Tape-echo: delay → lowpass filter → feedback → delay (loop), tapped to master
+    this.delayNode = this.ctx.createDelay(1.0);
+    this.delayNode.delayTime.value = 0.38;
+    this.feedbackGain = this.ctx.createGain();
+    this.feedbackGain.gain.value = 0.26;
+    const echoFilter = this.ctx.createBiquadFilter();
+    echoFilter.type = 'lowpass';
+    echoFilter.frequency.value = 1100;
+    this.delayNode.connect(echoFilter);
+    echoFilter.connect(this.feedbackGain);
+    this.feedbackGain.connect(this.delayNode);
+    this.delayNode.connect(this.masterGain);
+
     this.isRunning = true;
-    this.masterGain.gain.setValueAtTime(0, this.ctx.currentTime);
-    const targetVol = isMuted ? 0 : 0.45;
-    this.masterGain.gain.linearRampToValueAtTime(targetVol, this.ctx.currentTime + 3);
-    this.startLoop();
-    setTimeout(() => { if (this.isRunning) this.startAmbient(); }, 600);
+    this._bar = 0;
+    const targetVol = isMuted ? 0 : 0.40;
+    this.masterGain.gain.linearRampToValueAtTime(targetVol, this.ctx.currentTime + 5);
+    this._scheduleNextBar();
+  },
+
+  // Smooth sine note: two slightly detuned oscillators for chorus warmth
+  _playNote(freq, startTime, duration, velocity) {
+    const osc1 = this.ctx.createOscillator();
+    const osc2 = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+
+    osc1.type = 'sine';
+    osc1.frequency.value = freq;
+    osc2.type = 'sine';
+    osc2.frequency.value = freq * 1.0025; // subtle chorus
+
+    const blend = this.ctx.createGain();
+    blend.gain.value = 0.45;
+    osc2.connect(blend);
+    blend.connect(g);
+    osc1.connect(g);
+
+    const attack = 0.055;
+    const release = Math.min(duration * 0.6, 1.2);
+    g.gain.setValueAtTime(0, startTime);
+    g.gain.linearRampToValueAtTime(velocity, startTime + attack);
+    g.gain.setValueAtTime(velocity * 0.82, startTime + duration - release);
+    g.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+
+    g.connect(this.delayNode);
+    g.connect(this.masterGain);
+
+    osc1.start(startTime);
+    osc1.stop(startTime + duration + 0.05);
+    osc2.start(startTime);
+    osc2.stop(startTime + duration + 0.05);
+  },
+
+  // Soft wooden knock — muted, not harsh
+  _knock(startTime) {
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(105, startTime);
+    osc.frequency.exponentialRampToValueAtTime(44, startTime + 0.08);
+    g.gain.setValueAtTime(0.10 + this.intensity * 0.06, startTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.09);
+    osc.connect(g);
+    g.connect(this.masterGain);
+    osc.start(startTime);
+    osc.stop(startTime + 0.10);
+  },
+
+  _scheduleNextBar() {
+    if (!this.isRunning) return;
+    const bpm = 66;
+    const beat = 60 / bpm;
+    const barDur = beat * 2; // 2 beats per bar
+
+    // G – D – Am – C  (Knockin' on Heaven's Door)
+    // Root, fifth, octave for each chord — sparse fingerpicking feel
+    const chords = [
+      [98.00, 196.00, 246.94],  // G2 G3 B3
+      [146.83, 220.00, 293.66], // D3 A3 D4
+      [110.00, 164.81, 220.00], // A2 E3 A3
+      [130.81, 196.00, 261.63], // C3 G3 C4
+    ];
+    const sequence = [0, 1, 2, 2, 0, 1, 3, 3];
+    const chord = chords[sequence[this._bar % sequence.length]];
+    const now = this.ctx.currentTime + 0.05;
+
+    // Soft knock every other bar
+    if (this._bar % 2 === 0) this._knock(now);
+
+    // Pick two notes, staggered — not all at once
+    this._playNote(chord[0], now, barDur * 0.85, 0.13);
+    this._playNote(chord[1], now + 0.20, barDur * 0.75, 0.10);
+
+    // Higher melodic note every 4 bars
+    if (this._bar % 4 === 2) {
+      this._playNote(chord[2], now + beat * 0.75, beat * 1.0, 0.08);
+    }
+
+    this._bar++;
+    this._stepTimer = setTimeout(() => this._scheduleNextBar(), barDur * 1000 - 15);
+  },
+
+  update(intensity) {
+    this.intensity = Math.max(0, Math.min(1, intensity));
+    if (!this.masterGain || isMuted) return;
+    const vol = 0.36 + this.intensity * 0.10;
+    this.masterGain.gain.setTargetAtTime(vol, this.ctx.currentTime, 0.8);
   },
 
   updateMute() {
@@ -192,173 +371,22 @@ const BgmEngine = {
       btn.textContent = isMuted ? 'MUSIC: OFF' : 'MUSIC: ON';
       btn.classList.toggle('muted', isMuted);
     }
-
     if (!this.masterGain) return;
-    const targetVol = isMuted ? 0 : (0.45 + (this.intensity * 0.2));
-    this.masterGain.gain.setTargetAtTime(targetVol, this.ctx.currentTime, 0.5);
-    if (this.ambientGain) {
-      const base = [0.018, 0.032, 0.01][currentPhase - 1] ?? 0.018;
-      this.ambientGain.gain.setTargetAtTime(isMuted ? 0 : base + this.intensity * 0.015, this.ctx.currentTime, 0.5);
-    }
-  },
-
-  // Karplus-Strong string pluck synthesis
-  pluck(freq, velocity = 0.5) {
-    const dur = 2.5;
-    const sampleRate = this.ctx.sampleRate;
-    const bufferSize = sampleRate * dur;
-    const buffer = this.ctx.createBuffer(1, bufferSize, sampleRate);
-    const data = buffer.getChannelData(0);
-
-    const period = Math.floor(sampleRate / freq);
-    for (let i = 0; i < period; i++) {
-      data[i] = Math.random() * 2 - 1; // initial noise burst
-    }
-
-    const damping = 0.994 - (this.intensity * 0.04);
-    for (let i = period; i < bufferSize; i++) {
-      data[i] = (data[i - period] + data[i - period + 1]) * 0.5 * damping;
-    }
-
-    const source = this.ctx.createBufferSource();
-    source.buffer = buffer;
-    const g = this.ctx.createGain();
-    g.gain.setValueAtTime(velocity, this.ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + dur);
-
-    // Corruption effect at high intensity
-    if (this.intensity > 0.35) {
-      const dist = this.ctx.createWaveShaper();
-      dist.curve = this.makeDistortionCurve(this.intensity * 120);
-      source.connect(dist);
-      dist.connect(g);
-    } else {
-      source.connect(g);
-    }
-
-    g.connect(this.masterGain);
-    source.start();
-  },
-
-  makeDistortionCurve(amount) {
-    const n_samples = 44100;
-    const curve = new Float32Array(n_samples);
-    const deg = Math.PI / 180;
-    for (let i = 0; i < n_samples; ++i) {
-      const x = (i * 2) / n_samples - 1;
-      curve[i] = ((3 + amount) * x * 20 * deg) / (Math.PI + amount * Math.abs(x));
-    }
-    return curve;
-  },
-
-  knock() {
-    if (!this.ctx) return;
-    const osc = this.ctx.createOscillator();
-    const g = this.ctx.createGain();
-    // Wooden percussive sound
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(140, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.12);
-
-    g.gain.setValueAtTime(0.5 + (this.intensity * 0.5), this.ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
-
-    osc.connect(g);
-    g.connect(this.masterGain);
-    osc.start();
-    osc.stop(this.ctx.currentTime + 0.15);
-  },
-
-  startLoop() {
-    let bar = 0;
-    const bpm = 68;
-    const beatMs = (60 / bpm) * 1000;
-
-    // G - D - Am / G - D - C (Approx keys)
-    const chords = [
-      [98.00, 123.47, 146.83, 196.00], // G
-      [146.83, 185.00, 220.00, 293.66], // D
-      [110.00, 130.81, 164.81, 220.00], // Am
-      [130.81, 164.81, 196.00, 261.63]  // C
-    ];
-    const sequence = [0, 1, 2, 2, 0, 1, 3, 3]; // G-D-Am-Am-G-D-C-C
-
-    const playStep = () => {
-      if (!this.isRunning) return;
-
-      const chordIdx = sequence[bar % sequence.length];
-      const currentChord = chords[chordIdx];
-
-      // Knock on every bar start
-      this.knock();
-
-      // Strum chord
-      currentChord.forEach((f, i) => {
-        setTimeout(() => {
-          if (this.isRunning) this.pluck(f * (1 + (Math.random() * 0.005)), 0.35 - (i * 0.04));
-        }, i * (40 + Math.random() * 20));
-      });
-
-      bar++;
-      setTimeout(playStep, beatMs * 2); // Two beats per chord
-    };
-
-    playStep();
-  },
-
-  update(intensity) {
-    this.intensity = intensity;
-    if (this.masterGain) {
-      const targetVol = isMuted ? 0 : (0.45 + (intensity * 0.2));
-      this.masterGain.gain.setTargetAtTime(targetVol, this.ctx.currentTime, 0.5);
-    }
-  },
-
-  ambientGain: null,
-  ambientFilter: null,
-
-  startAmbient() {
-    if (this.ambientGain) return;
-    const bufferSize = this.ctx.sampleRate * 4;
-    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-    const src = this.ctx.createBufferSource();
-    src.buffer = buffer;
-    src.loop = true;
-    this.ambientFilter = this.ctx.createBiquadFilter();
-    this.ambientFilter.type = 'lowpass';
-    this.ambientFilter.frequency.value = 280;
-    this.ambientGain = this.ctx.createGain();
-    this.ambientGain.gain.value = isMuted ? 0 : 0.018;
-    src.connect(this.ambientFilter);
-    this.ambientFilter.connect(this.ambientGain);
-    this.ambientGain.connect(this.ctx.destination);
-    src.start();
+    const vol = isMuted ? 0 : 0.36 + this.intensity * 0.10;
+    this.masterGain.gain.setTargetAtTime(vol, this.ctx.currentTime, 0.5);
   },
 
   updateAmbient(phase, intensity) {
-    if (!this.ambientGain || !this.ambientFilter) return;
-    const base = [0.018, 0.032, 0.01][phase - 1] ?? 0.018;
-    this.ambientGain.gain.setTargetAtTime(isMuted ? 0 : base + intensity * 0.015, this.ctx.currentTime, 2.5);
-    const freq = phase === 3 ? 140 : (phase === 2 ? 380 : 280);
-    this.ambientFilter.frequency.setTargetAtTime(freq, this.ctx.currentTime, 2.5);
+    if (!this.masterGain || isMuted) return;
+    const baseVols = [0.36, 0.40, 0.30];
+    const base = baseVols[phase - 1] ?? 0.36;
+    this.masterGain.gain.setTargetAtTime(base + intensity * 0.10, this.ctx.currentTime, 3);
   },
 
   phaseTransitionSound(phase) {
-    if (!this.ctx || !this.masterGain) return;
-    const osc = this.ctx.createOscillator();
-    const g = this.ctx.createGain();
-    osc.type = 'sawtooth';
-    const f = phase === 3 ? 52 : 68;
-    osc.frequency.setValueAtTime(f, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(f * 0.5, this.ctx.currentTime + 1.8);
-    g.gain.setValueAtTime(isMuted ? 0 : 0.22, this.ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 1.8);
-    osc.connect(g);
-    g.connect(this.masterGain);
-    osc.start();
-    osc.stop(this.ctx.currentTime + 1.8);
+    if (!this.ctx) return;
+    const freq = phase === 3 ? 55.0 : 73.42; // G1 or D2
+    this._playNote(freq, this.ctx.currentTime + 0.05, 3.0, isMuted ? 0 : 0.16);
   }
 };
 
@@ -409,32 +437,18 @@ async function generateAndShowDoor() {
     const res = await fetch(`${API}/generate-door`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ summary: lastUserSummary }),
+      body: JSON.stringify({ summary: lastUserSummary, mode: selectedMode }),
     });
-    if (!res.ok) return;
+    if (!res.ok) return null;
 
     const imgRes = await fetch(`${API}/door-image`);
-    if (!imgRes.ok || imgRes.status === 204) return;
+    if (!imgRes.ok || imgRes.status === 204) return null;
 
     const blob = await imgRes.blob();
     const url = URL.createObjectURL(blob);
-    const el = document.getElementById('scene-3');
-    if (el) {
-      el.style.backgroundImage = `url(${url})`;
-      el.style.backgroundSize = 'cover';
-      el.style.backgroundPosition = 'center';
-
-      // Remove the red screen and CSS door
-      el.classList.remove('css-final');
-
-      const fallback = document.getElementById('door-fallback');
-      if (fallback) fallback.remove();
-
-      const overlay = document.getElementById('phase-color-overlay');
-      if (overlay) overlay.style.display = 'none';
-    }
+    return url; // caller handles display
   } catch (_) {
-    // CSS fallback stays
+    return null;
   }
 }
 
@@ -451,11 +465,10 @@ async function applyResponse(data) {
   if (phase !== currentPhase) {
     currentPhase = phase;
     document.body.className = `phase-${phase}`;
-    hudPhase.textContent = PHASE_NAMES[phase] || `PHASE ${phase}`;
+    hudPhase.textContent = (PHASE_NAMES[selectedMode] || PHASE_NAMES.classic)[phase] || `PHASE ${phase}`;
     switchScene(phase);
     BgmEngine.phaseTransitionSound(phase);
 
-    // JS-only fix: immediately remove red screen and CSS door when phase 3 starts
     if (phase === 3) {
       const scene3 = document.getElementById('scene-3');
       if (scene3) scene3.classList.remove('css-final');
@@ -516,40 +529,93 @@ async function applyResponse(data) {
     userInput.placeholder = "THE RECORD IS CLOSED.";
     hudPhase.textContent = "CASE CONCLUDED";
     hudPhase.style.color = "var(--p3-accent)";
-
     State.save();
 
-    // Start generating the door in the background immediately
+    // Start generating door image in background immediately
     const doorPromise = generateAndShowDoor();
 
-    // Show the door button
-    const doorWrap = document.getElementById('door-btn-wrap');
-    const btnDoor = document.getElementById('btn-door');
-    const doorHint = document.getElementById('door-btn-hint');
-    if (doorWrap) doorWrap.classList.add('visible');
+    // Let final dialogue breathe
+    await new Promise(r => setTimeout(r, 1800));
 
-    // On button click: wait for door image then transition
-    if (btnDoor) {
-      btnDoor.onclick = async () => {
-        btnDoor.disabled = true;
-        btnDoor.textContent = 'OPENING...';
-        if (doorHint) doorHint.textContent = 'preparing your door...';
+    // Transition to door scene
+    document.body.classList.add('pre-door');
+    switchScene(3);
 
-        // Wait for image to be ready (it may already be done)
-        await doorPromise;
+    // Auto-play 3 knocks
+    await new Promise(r => setTimeout(r, 700));
+    await playKnockSequence(3);
 
-        if (doorWrap) doorWrap.classList.remove('visible');
+    // Show knock UI
+    const knockWrap = document.getElementById('door-knock-wrap');
+    if (knockWrap) knockWrap.classList.add('visible');
+
+    // ── KNOCK → AI görseli göster ────────────────────────
+    const btnKnock = document.getElementById('btn-knock');
+    if (btnKnock) {
+      btnKnock.onclick = async () => {
+        btnKnock.disabled = true;
+        const btnLeave = document.getElementById('btn-leave-door');
+        if (btnLeave) btnLeave.disabled = true;
+
+        const knockText = document.getElementById('door-knock-text');
+        if (knockText) knockText.textContent = '...';
+
+        const doorImageUrl = await doorPromise;
+        if (knockWrap) knockWrap.classList.remove('visible');
+
+        // Görseli scene-3'e yükle ve geçiş yap
+        const scene3 = document.getElementById('scene-3');
+        if (scene3 && doorImageUrl) {
+          scene3.style.backgroundImage = `url(${doorImageUrl})`;
+          scene3.style.backgroundSize = 'cover';
+          scene3.style.backgroundPosition = 'center';
+          scene3.classList.remove('css-final');
+        }
+
+        document.body.classList.remove('pre-door');
         document.body.classList.add('game-over');
         switchScene(3);
 
-        // Show download and report buttons once scene 3 is active
         const btnDownload = document.getElementById('btn-download');
         if (btnDownload) btnDownload.style.display = 'block';
+        const btnReport = document.getElementById('btn-report');
+        if (btnReport) {
+          btnReport.style.display = 'block';
+          buildReport();
+        }
+      };
+    }
+
+    // ── WALK AWAY → closing message, no image ─────────────
+    const btnLeaveDoor = document.getElementById('btn-leave-door');
+    if (btnLeaveDoor) {
+      btnLeaveDoor.onclick = async () => {
+        if (btnKnock) btnKnock.disabled = true;
+        btnLeaveDoor.disabled = true;
+        if (knockWrap) knockWrap.classList.remove('visible');
+
+        // Switch back so dialogue is visible
+        document.body.classList.remove('pre-door');
+        switchScene(currentPhase > 1 ? 2 : 1);
+
+        await typewrite(
+          dialogueText,
+          selectedMode === 'crime'
+            ? "You walked out without telling me a thing. That door on the other side of town — it will still be there. They always are."
+            : "Some people aren't ready. That door will still be there — it always is.",
+          26
+        );
+
+        await new Promise(r => setTimeout(r, 2500));
+
+        document.body.classList.add('game-over');
+        hudPhase.textContent = 'THE DOOR REMAINS CLOSED';
+        hudPhase.style.color = 'var(--text-muted)';
 
         const btnReport = document.getElementById('btn-report');
         if (btnReport) {
           btnReport.style.display = 'block';
-          buildReport(); // Trigger data generation
+          buildReport();
         }
       };
     }
@@ -719,7 +785,34 @@ if (btnDownload) {
 }
 
 
-// (Character selection logic removed per request)
+// ── Mode selection ────────────────────────────────────────
+const PAPER_NOTE_CLASSIC = `You are being accused of breaking the law. Your old friend, Sheriff Garett will try to understand what happened.
+          <strong>Your answers will be used against you.</strong>
+          <br><br>
+          Evasive and rude answers raise pressure. Honest ones may lower it.<br><br>
+          <strong>Phase I</strong> — formal questioning.<br>
+          <strong>Phase II</strong> — he pushes you back to the moment.<br>
+          <strong>Phase III</strong> — the door appears. One last question.<br><br>
+          What's behind it depends on who you turned out to be.`;
+
+const PAPER_NOTE_CRIME = `A man is dead. Sheriff Pat Garrett has a few questions.
+          <strong>What you say will be used against you.</strong>
+          <br><br>
+          Contradictions raise pressure. Details lower it.<br><br>
+          <strong>Phase I</strong> — he builds the timeline.<br>
+          <strong>Phase II</strong> — he finds the cracks.<br>
+          <strong>Phase III</strong> — reckoning. The door waits.<br><br>
+          You can walk out of here. The question is how.`;
+
+document.querySelectorAll('.mode-card').forEach(card => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    selectedMode = card.dataset.mode;
+    const noteBody = document.getElementById('paper-note-body');
+    if (noteBody) noteBody.innerHTML = selectedMode === 'crime' ? PAPER_NOTE_CRIME : PAPER_NOTE_CLASSIC;
+  });
+});
 
 // ── Begin: start session ──────────────────────────────────
 btnBegin.addEventListener('click', async (e) => {
@@ -737,7 +830,7 @@ btnBegin.addEventListener('click', async (e) => {
   document.body.classList.remove('game-over');
   userInput.disabled = false;
   userInput.placeholder = "speak your truth...";
-  hudPhase.textContent = 'PHASE I — REMINISCENCE';
+  hudPhase.textContent = (PHASE_NAMES[selectedMode] || PHASE_NAMES.classic)[1];
 
   // Start Music Engine
   BgmEngine.init();
@@ -750,7 +843,7 @@ btnBegin.addEventListener('click', async (e) => {
     const res = await fetch(`${API}/start`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ character: selectedChar }),
+      body: JSON.stringify({ character: selectedChar, mode: selectedMode }),
     });
 
     if (!res.ok) {
@@ -771,6 +864,13 @@ btnBegin.addEventListener('click', async (e) => {
 
     showScreen('screen-game');
     Look.init();
+
+    const nameplate = document.getElementById('judge-nameplate');
+    if (nameplate) {
+      nameplate.textContent = selectedMode === 'crime'
+        ? 'SHERIFF PAT GARRETT · LINCOLN COUNTY'
+        : 'SHERIFF RAYMOND HAYES · LINCOLN COUNTY';
+    }
 
     const playerBody = document.getElementById('player-body');
     if (playerBody) playerBody.className = `player-body char-${selectedChar}`;
@@ -811,7 +911,7 @@ async function sendMessage() {
     const res = await fetch(`${API}/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text, character: selectedChar, history: chatHistory }),
+      body: JSON.stringify({ message: text, character: selectedChar, history: chatHistory, mode: selectedMode }),
     });
 
     if (!res.ok) {
@@ -874,13 +974,14 @@ async function init() {
   if (saved && saved.messageHistory && saved.messageHistory.length > 0) {
     console.log('Restoring previous session...');
     selectedChar = saved.selectedChar;
+    selectedMode = saved.selectedMode || 'classic';
     currentPhase = saved.currentPhase;
     messageHistory = saved.messageHistory;
     chatHistory = saved.chatHistory || [];
 
     // Set visuals
     document.body.className = `phase-${currentPhase}`;
-    hudPhase.textContent = PHASE_NAMES[currentPhase] || `PHASE ${currentPhase}`;
+    hudPhase.textContent = (PHASE_NAMES[selectedMode] || PHASE_NAMES.classic)[currentPhase] || `PHASE ${currentPhase}`;
     switchScene(currentPhase);
 
     const playerBody = document.getElementById('player-body');

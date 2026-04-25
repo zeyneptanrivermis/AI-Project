@@ -1297,70 +1297,186 @@ body.game-over #hud-phase {
   background: #3a2e22;
 }
 
-/* ── Door button (shown at end of game) ── */
-#door-btn-wrap {
+/* ── Mode selection ── */
+#mode-select {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.mode-label {
+  font-size: 0.65rem;
+  letter-spacing: 0.18em;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.mode-cards {
+  display: flex;
+  gap: 1.2rem;
+  justify-content: center;
+}
+
+.mode-card {
+  width: 200px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.02);
+  padding: 1.1rem 1.2rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+}
+
+.mode-card:hover {
+  border-color: var(--p1-accent);
+  background: rgba(74, 103, 65, 0.08);
+}
+
+.mode-card.selected {
+  border-color: var(--accent);
+  background: rgba(74, 103, 65, 0.14);
+  box-shadow: 0 0 20px rgba(74, 103, 65, 0.18);
+}
+
+.mode-card-title {
+  font-family: 'Special Elite', serif;
+  font-size: 0.78rem;
+  letter-spacing: 0.15em;
+  color: var(--text);
+  margin-bottom: 0.5rem;
+}
+
+.mode-card-desc {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  line-height: 1.6;
+  font-style: italic;
+}
+
+
+/* ── pre-door: kapı sahnesi açılmadan önce UI'ı gizle ── */
+body.pre-door #judge-wrap,
+body.pre-door #dialogue-wrap,
+body.pre-door #input-wrap,
+body.pre-door #hud-top {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.9s ease;
+}
+
+
+/* ── Knock UI overlay ── */
+#door-knock-wrap {
   position: absolute;
   inset: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 1rem;
+  justify-content: flex-end;
+  padding-bottom: 8vh;
+  gap: 1.4rem;
   z-index: 50;
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.8s ease;
 }
 
-#door-btn-wrap.visible {
+#door-knock-wrap.visible {
   opacity: 1;
   pointer-events: all;
 }
 
-#btn-door {
+#door-knock-text {
+  font-family: 'Special Elite', serif;
+  font-size: 1rem;
+  letter-spacing: 0.28em;
+  color: rgba(200, 180, 150, 0.75);
+  text-align: center;
+  font-style: italic;
+  text-shadow: 0 0 20px rgba(0,0,0,0.9);
+  animation: knock-text-pulse 2.8s ease-in-out infinite;
+}
+
+@keyframes knock-text-pulse {
+  0%, 100% { opacity: 0.75; }
+  50%       { opacity: 1; }
+}
+
+#door-knock-actions {
+  display: flex;
+  gap: 1.6rem;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.door-knock-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.door-knock-hint {
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+  color: rgba(200, 180, 150, 0.35);
+  font-style: italic;
+}
+
+#btn-knock {
   background: transparent;
   border: 1px solid rgba(200, 180, 150, 0.7);
   color: rgba(200, 180, 150, 0.9);
   font-family: 'Courier Prime', monospace;
-  font-size: 1rem;
-  letter-spacing: 0.35em;
+  font-size: 0.85rem;
+  letter-spacing: 0.3em;
   text-transform: uppercase;
-  padding: 1rem 3rem;
+  padding: 0.9rem 2.4rem;
   cursor: pointer;
   transition: all 0.35s ease;
   animation: door-pulse 2.5s ease-in-out infinite;
 }
 
-#btn-door:hover {
+#btn-knock:hover {
   background: rgba(200, 180, 150, 0.1);
   border-color: rgba(200, 180, 150, 1);
   color: #fff;
   box-shadow: 0 0 40px rgba(200, 180, 150, 0.25);
 }
 
-#btn-door:disabled {
+#btn-knock:disabled {
   opacity: 0.4;
   cursor: not-allowed;
   animation: none;
 }
 
-#door-btn-hint {
-  font-size: 0.65rem;
-  letter-spacing: 0.18em;
-  color: rgba(200, 180, 150, 0.4);
-  font-style: italic;
+#btn-leave-door {
+  background: transparent;
+  border: 1px solid rgba(120, 100, 80, 0.45);
+  color: rgba(150, 130, 110, 0.7);
+  font-family: 'Courier Prime', monospace;
+  font-size: 0.85rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  padding: 0.9rem 2.4rem;
+  cursor: pointer;
+  transition: all 0.35s ease;
+}
+
+#btn-leave-door:hover {
+  border-color: rgba(150, 130, 110, 0.7);
+  color: rgba(180, 160, 140, 0.9);
+}
+
+#btn-leave-door:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
 @keyframes door-pulse {
-
-  0%,
-  100% {
-    box-shadow: 0 0 0px rgba(200, 180, 150, 0);
-  }
-
-  50% {
-    box-shadow: 0 0 25px rgba(200, 180, 150, 0.2);
-  }
+  0%, 100% { box-shadow: 0 0 0px rgba(200, 180, 150, 0); }
+  50%       { box-shadow: 0 0 25px rgba(200, 180, 150, 0.2); }
 }
 
 #btn-music-toggle {
