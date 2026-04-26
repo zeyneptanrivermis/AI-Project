@@ -20,7 +20,6 @@ KNOCK is designed as a mirror instead of a trap. The experience is not about win
 **Frontend Structure**
 - `game.js` — Core game loop, state management, message handling
 - `sprites.js` — Character animation controller
-- `look.js` — Player head tracking (jury/judge focus)
 - `style.css` — 1880s aesthetic, phase-based color transitions
 - `index.html` — Scene layers, UI elements
 
@@ -36,7 +35,7 @@ User Input → Frontend → Backend LLM → JSON Response → State Update → U
 
 ## Dependencies & API Requirements
 ### Backend Dependencies
-Ensure the following Python packages are installed (note: the `requirements.txt` might need to be updated with all these packages):
+Ensure the following Python packages are installed:
 - `fastapi`
 - `uvicorn`
 - `python-dotenv`
@@ -77,8 +76,13 @@ On your machine:
    uvicorn main:app --reload --port 8000
    ```
 5. **Run the Frontend**:
-   Simply open `hayes-protocol/frontend/index.html` in your browser. 
+   Simply open `hayes-protocol/frontend/index.html` in your browser.
 
+## Play Online
+
+You can also play the game directly on itch.io:
+
+- 🔗 **KNOCK — Design Your Door**: [https://defnkrm.itch.io/knock-door]
 
 ## Features
 - **Dynamic Interrogation**: LLM adapts questions based on player responses
@@ -96,6 +100,12 @@ On your machine:
 <img src="hayes-protocol/frontend/assets/serif_normal.png" alt="Sheriff Hayes" width="200">
 *Sheriff Raymond Hayes presides over the interrogation. His expression adapts dynamically to your answers.*
 
+### Main Page
+<img src="./hayes-protocol/frontend/assets/image.png" alt="KNOCK Ana Ekran" width="600">
+
+### In-Game Photo
+<img src="./hayes-protocol/frontend/assets/ingame.png" alt="KNOCK Ana Ekran" width="600">
+
 ### Example Dialogue Flow
 **Sheriff Hayes**: *"What's the first rule you've ever broken?"*
 **Player**: *"I stole bread to feed my brother."*
@@ -106,18 +116,17 @@ On your machine:
 At the end of the session, the system generates a case file and an AI-generated door image reflecting your psychological profile, interpreting traits such as: *"remorseful, brother's death, dusty road, Kansas, fire, loyalty over law, tired, seeking peace."*
 
 ## How to Play
-1. **Select Character**: Choose your soldier archetype on start screen
+1. **Select Gamemode**: Choose your game topic - Reckoning or Investigation. 
 2. **Answer Honestly**: Sheriff's questions mirror your decisions back at you
-3. **Watch Pressure**: Intensity bar rises with evasion, falls with truth
+3. **Watch Pressure**: Intensity bar rises with evasion, falls with truth.
 4. **Read Signals**: Sheriff's expression reflects his emotional state
-5. **Reach the Door**: Complete Phase 3 → Generate your personalized door image
-6. **Download**: Save your psychological portrait as PNG
+5. **Reach the Door**: Complete Phase 3 → Generate your personalized door image and personality record.
+6. **Download**: Save your psychological portrait as PNG.
 
 **Tips**: 
 - Vulnerability lowers pressure faster than deflection
 - Your words are tracked — consistency matters
 - The door is a mirror, not a judgment
-
 
 ## Credits
 - Concept & Design: Zeynep Tanrıvermiş, Defne Demir
