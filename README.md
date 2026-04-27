@@ -92,7 +92,7 @@ You can also play the game directly on itch.io:
 - **Session Persistence**: Resume conversations via localStorage
 - **Personalized Outcome**: AI-generated "door" image based on psychological profile
 - **Transcript Log**: Full conversation history visible during play
-
+- **2 Different Gamemodes**: You can have your own storyline or act in a set storyline.
 
 ## Example Outputs / Screenshots / Results
 
@@ -106,8 +106,14 @@ You can also play the game directly on itch.io:
 ### In-Game Photo
 <img src="./hayes-protocol/frontend/assets/ingame.png" alt="KNOCK in-game photo" width="600">
 
-### Example Result Door
-<img src="./hayes-protocol/frontend/assets/ingame.png" alt="Personalized Door" width="600">
+### Example Result Doors
+Result changes according to your behaviour.
+<img src="./hayes-protocol/frontend/assets/your_door.png" alt="Personalized Door" width="600">
+
+<img src="./hayes-protocol/frontend/assets/your_door1.png" alt="Personalized Door" width="600">
+
+### Example Sheriff Report
+<img src="./hayes-protocol/frontend/assets/rapor.png" alt="Personalized Door" width="600">
 
 ### Example Dialogue Flow
 **Sheriff Hayes**: *"What's the first rule you've ever broken?"*
