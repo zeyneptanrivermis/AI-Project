@@ -101,10 +101,13 @@ You can also play the game directly on itch.io:
 *Sheriff Raymond Hayes presides over the interrogation. His expression adapts dynamically to your answers.*
 
 ### Main Page
-<img src="./hayes-protocol/frontend/assets/image.png" alt="KNOCK Ana Ekran" width="600">
+<img src="./hayes-protocol/frontend/assets/image.png" alt="KNOCK Main Page" width="600">
 
 ### In-Game Photo
-<img src="./hayes-protocol/frontend/assets/ingame.png" alt="KNOCK Ana Ekran" width="600">
+<img src="./hayes-protocol/frontend/assets/ingame.png" alt="KNOCK in-game photo" width="600">
+
+### Example Result Door
+<img src="./hayes-protocol/frontend/assets/ingame.png" alt="Personalized Door" width="600">
 
 ### Example Dialogue Flow
 **Sheriff Hayes**: *"What's the first rule you've ever broken?"*
